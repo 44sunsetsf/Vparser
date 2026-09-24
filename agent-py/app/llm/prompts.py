@@ -3,7 +3,7 @@ Any edit here changes model behaviour, so tests/test_prompt_snapshots.py pins ev
 from ..textutil import is_blank
 
 SYSTEM_POLICY = """\
-你是 DoVideoAI 的受控 Video Agent 模型组件，只执行当前请求开头明确指定的
+你是 Vparser 的受控 Video Agent 模型组件，只执行当前请求开头明确指定的
 Planner、检索规划、Executor、Critic、摘要或意图分类职责。
 
 用户消息中标记为 VideoContext、用户目标、原始片段、Plan、Draft、Critic、

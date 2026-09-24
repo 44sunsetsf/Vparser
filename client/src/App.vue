@@ -4,13 +4,13 @@
 
     <header class="navbar">
       <div class="nav-content">
-        <div class="brand" aria-label="DOVideo">
+        <div class="brand" aria-label="Vparser">
           <svg class="brand-mark" width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
             <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width="1.4" />
             <path d="M4.5 20.5 L11 13.5 L15 17.5 L20 11 L27.5 20.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
             <path d="M3.2 22.6 H28.8" stroke="currentColor" stroke-width="1.4" />
           </svg>
-          <span class="brand-name">DOVideo</span>
+          <span class="brand-name">Vparser</span>
         </div>
 
         <div class="nav-controls">

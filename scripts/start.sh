@@ -65,7 +65,7 @@ docker compose --env-file .env --profile app up -d --build --wait --wait-timeout
 
 url="http://localhost:${WEB_PORT}"
 echo
-echo "DoVideoAI is ready:  $url"
+echo "Vparser is ready:  $url"
 echo "Traces (Jaeger):     http://localhost:${JAEGER_UI_HOST_PORT}"
 echo "Metrics (Prometheus): http://localhost:${PROMETHEUS_HOST_PORT}"
 echo "Register an account, upload a video (docs/samples/binary-tree-demo.mp4), then start an analysis."

@@ -1,7 +1,7 @@
 [project]
 name = "dovideo-agent"
 version = "0.1.0"
-description = "DoVideoAI agent service: Planner / Executor / Critic video analysis over gRPC"
+description = "Vparser agent service: Planner / Executor / Critic video analysis over gRPC"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "grpcio>=1.84",

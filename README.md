@@ -1,5 +1,5 @@
 <div align="center">
-  <h2>DoVideoAI</h2>
+  <h2>Vparser</h2>
   <p>
     <img src="https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square" alt="Go 1.25">
     <img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square" alt="Python 3.12">
@@ -90,7 +90,7 @@ set -a; source .env; set +a
 ## 目录结构
 
 ```text
-DoVideoAI
+Vparser
 ├── proto/               # gRPC 契约（唯一真源）
 ├── server-go/           # Go 网关：HTTP API、Kafka、锁、限流、VideoContext 构建
 ├── agent-py/            # Python Agent：工作流、检索、证据校验、Checkpoint

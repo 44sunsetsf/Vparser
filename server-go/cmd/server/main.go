@@ -1,4 +1,4 @@
-// Command server is the DoVideoAI gateway: HTTP API, uploads, task scheduling over Kafka, video
+// Command server is the Vparser gateway: HTTP API, uploads, task scheduling over Kafka, video
 // context building, and the gRPC client of the agent service.
 package main
 

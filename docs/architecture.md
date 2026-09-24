@@ -1,4 +1,4 @@
-# DoVideoAI 架构与服务契约
+# Vparser 架构与服务契约
 
 本文档是 `server-go`（网关与调度）和 `agent-py`（Agent 推理）两个服务共同遵守的契约，接口以 `proto/agent/v1/agent.proto` 为准。任何跨服务的格式改动，都必须同时改动本文件和 proto。
 
