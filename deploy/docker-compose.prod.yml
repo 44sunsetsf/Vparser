@@ -4,8 +4,8 @@
 # 本地开发不受影响：不叠加这份文件时，一切和原来一样。
 #
 # 1. 内存调优：MySQL、Kafka、Qdrant、MinIO 按小机器收紧，空闲时合计约 700MB（默认约 1.5GB）
-# 2. CPU 限额：视频处理（server-go 及其调起的 ffmpeg / tesseract）最多用 1 个核，
-#    另一个核留给系统和 SSH，分析视频时机器不会卡死
+# 2. CPU 限额：视频处理（server-go 及其调起的 ffmpeg / tesseract）最多用 1.5 个核，
+#    剩下半个核留给系统和 SSH，分析视频时机器不会卡死
 # 3. 对外只经 GoEuroOps 的 Caddy（HTTPS + 访问口令）：web、minio、jaeger 接入 goeuroops_default 网络
 # 4. Prometheus 不启动（需要时加 --profile monitoring）
 
@@ -117,7 +117,8 @@ services:
       AGENT_MAX_DURATION_MS: ${AGENT_MAX_DURATION_MS:-300000}
     mem_limit: 700m
     memswap_limit: 1200m
-    cpus: 1.0
+    # 视频预处理（ffmpeg 抽帧、tesseract OCR）最多 1.5 个核，始终给系统和 SSH 留出半个核
+    cpus: 1.5
 
   web:
     <<: [*edge, *logging]
