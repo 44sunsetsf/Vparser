@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     siliconflow_base_url: str = "https://api.siliconflow.cn/v1"
     llm_model: str = "deepseek-ai/DeepSeek-V3.2"
     llm_timeout_seconds: int = 300
+    # Hybrid-reasoning models (e.g. Qwen3.x) think before answering unless told not to, which can cost
+    # 10–25s per call. None = send nothing and keep the provider default; set false to turn thinking off.
+    llm_enable_thinking: bool | None = None
     llm_input_price_per_million: float = 0
     llm_output_price_per_million: float = 0
     embedding_model: str = "BAAI/bge-m3"

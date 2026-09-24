@@ -113,10 +113,14 @@ class DeepSeekClient:
                             api_key=settings.siliconflow_api_key or "missing-api-key",
                             timeout=float(timeout_seconds), max_retries=0)
 
+            thinking = getattr(settings, "llm_enable_thinking", None)
+            extra_body = {"enable_thinking": thinking} if thinking is not None else None
+
             def chat_fn(system: str, user: str) -> str | None:  # noqa: F811
                 resp = client.chat.completions.create(
                     model=self._model,
-                    messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
+                    messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                    extra_body=extra_body)
                 return resp.choices[0].message.content
 
         self._chat_fn = chat_fn

@@ -161,3 +161,25 @@ def test_exhausted_budget_is_not_reported_as_permanent_model_failure():
         with pytest.raises(AgentError) as e:
             client.plan(CTX)
     assert not is_permanent_failure(e.value)
+
+
+class _RecordingOpenAI:
+    """Stands in for openai.OpenAI and records the kwargs of each chat completion call."""
+    calls: list = []
+
+    def __init__(self, **_):
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+    def _create(self, **kwargs):
+        _RecordingOpenAI.calls.append(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=PLAN_JSON))])
+
+
+@pytest.mark.parametrize("thinking, expected", [(None, None), (False, {"enable_thinking": False})])
+def test_enable_thinking_is_only_sent_when_configured(monkeypatch, thinking, expected):
+    _RecordingOpenAI.calls = []
+    monkeypatch.setattr(ds, "OpenAI", _RecordingOpenAI)
+    settings = SimpleNamespace(**vars(SETTINGS), llm_enable_thinking=thinking)
+    client = ds.DeepSeekClient(settings, AgentTelemetry(fakeredis.FakeRedis(decode_responses=True)))
+    client.plan(CTX)
+    assert _RecordingOpenAI.calls and _RecordingOpenAI.calls[0]["extra_body"] == expected
