@@ -81,6 +81,7 @@ func New(ctx context.Context, c *config.Config) (*Minio, error) {
 		}
 		slog.Info("minio_bucket_created", "bucket", c.MinioBucket)
 	}
+	ensureChunkExpiry(ctx, cli, c.MinioBucket)
 	// Whole-bucket public-read is deliberately ignored (media is served via short-lived presigned URLs).
 	if c.MinioPublicRead {
 		slog.Warn("minio_public_read_ignored", "bucket", c.MinioBucket, "reason", "media_served_via_short_lived_presigned_url")

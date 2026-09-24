@@ -32,7 +32,7 @@ const (
 	uploadKeyPrefix   = "upload:chunked:"
 	MaxChunkBytes     = 5 * 1024 * 1024
 	MaxTotalChunks    = 410
-	chunkObjectPrefix = "chunk-uploads/"
+	chunkObjectPrefix = storage.ChunkUploadPrefix // abandoned parts expire via a bucket lifecycle rule
 	uploadTTL         = 24 * time.Hour
 )
 
