@@ -34,7 +34,9 @@ services:
 
   kafka:
     environment:
-      KAFKA_HEAP_OPTS: -Xms64m -Xmx160m
+      # 日志压缩的去重缓冲区默认 128MB，会直接撑爆小堆；演示数据量很小，8MB 足够
+      KAFKA_HEAP_OPTS: -Xms64m -Xmx192m
+      KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE: 8388608
       KAFKA_JVM_PERFORMANCE_OPTS: -XX:+UseSerialGC -XX:MaxMetaspaceSize=96m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
       KAFKA_NUM_NETWORK_THREADS: 1
       KAFKA_NUM_IO_THREADS: 2
