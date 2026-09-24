@@ -42,6 +42,13 @@ services:
       KAFKA_NUM_IO_THREADS: 2
       KAFKA_BACKGROUND_THREADS: 2
       KAFKA_LOG_CLEANER_THREADS: 1
+    # 默认健康检查每次启动一个 JVM 命令行工具，在半个核上 10 秒跑不完；改成探测端口
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':</dev/tcp/127.0.0.1/9092'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     mem_limit: 400m
     cpus: 0.5
 
