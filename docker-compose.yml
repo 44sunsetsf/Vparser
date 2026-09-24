@@ -76,6 +76,9 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+      # 镜像默认把数据写在 /tmp/kraft-combined-logs，不在下面的 kafka-data 卷里：
+      # 容器一重建 topic 就没了，server-go 只在启动时建 topic，之后提交任务会报 UNKNOWN_TOPIC_OR_PARTITION
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:

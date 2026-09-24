@@ -37,9 +37,6 @@ services:
       # 日志压缩的去重缓冲区默认 128MB，会直接撑爆小堆；演示数据量很小，8MB 足够
       KAFKA_HEAP_OPTS: -Xms48m -Xmx128m
       KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE: 8388608
-      # 镜像默认把数据写在 /tmp/kraft-combined-logs，不在 kafka-data 卷里：容器一重建 topic 就没了，
-      # server-go 只在启动时建 topic，之后提交任务会报 UNKNOWN_TOPIC_OR_PARTITION
-      KAFKA_LOG_DIRS: /var/lib/kafka/data
       # 只用 C1 编译器、限制代码缓存 / 线程栈 / 直接内存：演示流量极小，吞吐不是目标
       KAFKA_JVM_PERFORMANCE_OPTS: -XX:+UseSerialGC -XX:MaxMetaspaceSize=80m -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=32m -Xss512k -XX:MaxDirectMemorySize=32m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
       KAFKA_NUM_NETWORK_THREADS: 1
