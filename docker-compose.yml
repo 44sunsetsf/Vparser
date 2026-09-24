@@ -44,7 +44,10 @@ services:
       - ./qdrant/data:/qdrant/storage
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # MinIO 官方已不再公开发布镜像（quay.io / Docker Hub 都拉不到），改用 Chainguard 从开源源码构建的版本，
+    # 按摘要固定。它默认以 UID 65532 运行，这里用 root，和原来的官方镜像一致，已有的数据目录无需改权限。
+    image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
+    user: "0:0"
     ports:
       - "127.0.0.1:${MINIO_HOST_PORT:-9000}:9000"
       - "127.0.0.1:${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
@@ -131,7 +134,8 @@ services:
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-video_chunks}
       SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
       SILICONFLOW_BASE_URL: ${SILICONFLOW_BASE_URL:-https://api.siliconflow.cn/v1}
-      LLM_MODEL: ${LLM_MODEL:-deepseek-ai/DeepSeek-V3.2}
+      LLM_MODEL: ${LLM_MODEL:-Qwen/Qwen3.6-35B-A3B}
+      LLM_ENABLE_THINKING: ${LLM_ENABLE_THINKING:-false}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-300}
       LLM_INPUT_PRICE_PER_MILLION: ${LLM_INPUT_PRICE_PER_MILLION:-0}
       LLM_OUTPUT_PRICE_PER_MILLION: ${LLM_OUTPUT_PRICE_PER_MILLION:-0}

@@ -74,9 +74,6 @@ services:
 
   minio:
     <<: [*edge, *logging]
-    # MinIO 官方已不再公开发布镜像（quay.io / Docker Hub 均拉不到），改用 Chainguard
-    # 从开源源码构建的版本，按摘要固定。它以 UID 65532 运行，数据目录需要先 chown。
-    image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
     environment:
       GOMAXPROCS: 1
       GOGC: 50
@@ -105,11 +102,6 @@ services:
       # 线上实测一次分析约 2 分钟，几乎全花在模型接口上（Planner 33s、Executor 21s + 54s、Critic 12s），
       # 默认 120s 预算在第二轮就用完；放宽到 300s。server-go 的运行超时按它自动加 60s。
       AGENT_MAX_DURATION_MS: ${AGENT_MAX_DURATION_MS:-300000}
-      # 一次分析的时间几乎全花在模型接口上。在服务器上实测同一个结构化笔记任务（2026-09）：
-      #   DeepSeek-V3.2 20–47s；Qwen3.6-35B-A3B 关闭思考 3.5–5.4s，JSON 合法、引用逐字准确（5/5）
-      # 不关思考时 Qwen3.6 要先想 13–25s，所以两项要一起设。
-      LLM_MODEL: ${VPARSER_LLM_MODEL:-Qwen/Qwen3.6-35B-A3B}
-      LLM_ENABLE_THINKING: ${VPARSER_LLM_ENABLE_THINKING:-false}
     mem_limit: 400m
     cpus: 0.75
 

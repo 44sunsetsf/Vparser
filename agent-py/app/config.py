@@ -32,11 +32,13 @@ class Settings(BaseSettings):
     # Model provider (OpenAI-compatible)
     siliconflow_api_key: str = ""
     siliconflow_base_url: str = "https://api.siliconflow.cn/v1"
-    llm_model: str = "deepseek-ai/DeepSeek-V3.2"
+    # Measured on the same structured-notes task (2026-09): DeepSeek-V3.2 took 20–47s per call,
+    # Qwen3.6-35B-A3B with thinking off 3.5–5.4s, with valid JSON and verbatim quotes (5/5).
+    llm_model: str = "Qwen/Qwen3.6-35B-A3B"
     llm_timeout_seconds: int = 300
-    # Hybrid-reasoning models (e.g. Qwen3.x) think before answering unless told not to, which can cost
-    # 10–25s per call. None = send nothing and keep the provider default; set false to turn thinking off.
-    llm_enable_thinking: bool | None = None
+    # Hybrid-reasoning models (e.g. Qwen3.x) think before answering unless told not to, which costs
+    # 10–25s per call. False turns it off; None sends nothing and keeps the provider default.
+    llm_enable_thinking: bool | None = False
     llm_input_price_per_million: float = 0
     llm_output_price_per_million: float = 0
     embedding_model: str = "BAAI/bge-m3"
