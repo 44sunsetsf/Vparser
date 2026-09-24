@@ -35,9 +35,10 @@ services:
   kafka:
     environment:
       # 日志压缩的去重缓冲区默认 128MB，会直接撑爆小堆；演示数据量很小，8MB 足够
-      KAFKA_HEAP_OPTS: -Xms64m -Xmx192m
+      KAFKA_HEAP_OPTS: -Xms48m -Xmx128m
       KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE: 8388608
-      KAFKA_JVM_PERFORMANCE_OPTS: -XX:+UseSerialGC -XX:MaxMetaspaceSize=96m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
+      # 只用 C1 编译器、限制代码缓存 / 线程栈 / 直接内存：演示流量极小，吞吐不是目标
+      KAFKA_JVM_PERFORMANCE_OPTS: -XX:+UseSerialGC -XX:MaxMetaspaceSize=80m -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=32m -Xss512k -XX:MaxDirectMemorySize=32m -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
       KAFKA_NUM_NETWORK_THREADS: 1
       KAFKA_NUM_IO_THREADS: 2
       KAFKA_BACKGROUND_THREADS: 2
@@ -68,7 +69,7 @@ services:
     environment:
       GOMAXPROCS: 1
       GOGC: 50
-      GOMEMLIMIT: 160MiB
+      GOMEMLIMIT: 96MiB
     mem_limit: 256m
     cpus: 0.5
 
