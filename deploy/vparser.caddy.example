@@ -6,6 +6,8 @@
 # 打开 https://vparser.<SITE_ADDRESS>/?key=VPARSER_GATE_KEY 会写入 30 天的 Cookie，之后凭 Cookie 放行。
 vparser.{$SITE_ADDRESS} {
 	encode zstd gzip
+	# 访问日志片段定义在 GoEuroOps 的 Caddyfile 里；进入链接里的 key 会被替换成 REDACTED
+	import access_log vparser
 
 	@enter query key=VPARSER_GATE_KEY
 	handle @enter {
@@ -36,6 +38,7 @@ s3-vparser.{$SITE_ADDRESS} {
 
 # Jaeger 链路追踪界面：Jaeger 不用 Authorization 头，可以用 basic_auth
 jaeger-vparser.{$SITE_ADDRESS} {
+	import access_log jaeger-vparser
 	basic_auth {
 		VPARSER_USER VPARSER_PASSWORD_HASH
 	}
