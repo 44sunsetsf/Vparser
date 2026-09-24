@@ -93,6 +93,9 @@ services:
       - "127.0.0.1:${JAEGER_OTLP_HOST_PORT:-4317}:4317"
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
+      # In-memory storage keeps every trace; cap it so a load test cannot OOM-kill the container.
+      MEMORY_MAX_TRACES: "20000"
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:v2.55.1

@@ -16,6 +16,24 @@
 
 上传一段视频（本地文件或在线链接），写下你想得到的东西，比如复习笔记、观点审查、剪辑脚本。Agent 会读懂语音和画面文字，给出结构化结果，**每条结论都带时间戳**，点一下就跳回原画面核对。结果之后还能继续追问。
 
+## 界面预览
+
+**工作台**：上传本地视频或导入链接（支持秒传与断点续传），管理自己的视频。
+
+![工作台](docs/images/workspace.jpg)
+
+**分析结果**：原视频与结构化结论并排，点击时间戳即可跳回对应画面。
+
+![分析结果](docs/images/agent-result.jpg)
+
+**时间戳证据**：每条结论都绑定可核验的 ASR / OCR 原文；未通过 Critic 校验的结果会明确提示。
+
+![时间戳证据](docs/images/agent-evidence.jpg)
+
+**全链路追踪**：一次分析是一条跨 server-go 与 agent-py 的 trace（本例 155 个 span），Planner、Executor 与每次模型调用的耗时一目了然。
+
+![Jaeger 链路](docs/images/trace-agent.jpg)
+
 ## 架构
 
 ```
