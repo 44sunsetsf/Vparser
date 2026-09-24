@@ -1,17 +1,31 @@
-# 复制到 GoEuroOps 的 deploy/sites/vparser.caddy，替换两处占位，然后 reload Caddy。
+# 复制到 GoEuroOps 的 deploy/sites/vparser.caddy，替换 VPARSER_GATE_KEY 和 Jaeger 的口令占位，然后 reload Caddy。
 # {$SITE_ADDRESS} 由 GoEuroOps 的 Caddy 容器环境变量提供。
 
-# 工作台：整站要口令（能导入任意视频链接，公开会被滥用）
+# 工作台：凭专属访问链接进入（能导入任意视频链接，公开会被滥用）。
+# 不能用 basic_auth：它和应用自己的登录都用 Authorization 请求头，登录后接口会全部 401。
+# 打开 https://vparser.<SITE_ADDRESS>/?key=VPARSER_GATE_KEY 会写入 30 天的 Cookie，之后凭 Cookie 放行。
 vparser.{$SITE_ADDRESS} {
 	encode zstd gzip
-	basic_auth {
-		VPARSER_USER VPARSER_PASSWORD_HASH
+
+	@enter query key=VPARSER_GATE_KEY
+	handle @enter {
+		header Set-Cookie "vp_gate=VPARSER_GATE_KEY; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
+		redir * / 302
 	}
-	request_body {
-		max_size 2GB
+
+	@locked not header_regexp Cookie vp_gate=VPARSER_GATE_KEY
+	handle @locked {
+		header Content-Type "text/html; charset=utf-8"
+		respond "<p style='font:16px sans-serif;margin:3em'>这个演示需要专属访问链接，请向作者索取。</p>" 403
 	}
-	reverse_proxy web:80 {
-		flush_interval -1
+
+	handle {
+		request_body {
+			max_size 2GB
+		}
+		reverse_proxy web:80 {
+			flush_interval -1
+		}
 	}
 }
 
@@ -20,7 +34,7 @@ s3-vparser.{$SITE_ADDRESS} {
 	reverse_proxy minio:9000
 }
 
-# Jaeger 链路追踪界面：和工作台同一个口令
+# Jaeger 链路追踪界面：Jaeger 不用 Authorization 头，可以用 basic_auth
 jaeger-vparser.{$SITE_ADDRESS} {
 	basic_auth {
 		VPARSER_USER VPARSER_PASSWORD_HASH

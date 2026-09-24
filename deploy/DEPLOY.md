@@ -5,7 +5,7 @@
 
 | 地址 | 内容 | 访问 |
 |---|---|---|
-| `https://vparser.<SITE_ADDRESS>` | 工作台 | 口令 |
+| `https://vparser.<SITE_ADDRESS>/?key=<访问密钥>` | 工作台 | 专属访问链接（写入 Cookie） |
 | `https://jaeger-vparser.<SITE_ADDRESS>` | 链路追踪 | 口令 |
 | `https://s3-vparser.<SITE_ADDRESS>` | 视频播放（预签名链接） | 签名即授权 |
 
@@ -32,7 +32,7 @@ git clone https://github.com/44sunsetsf/Vparser.git ~/vparser && cd ~/vparser
 chmod 600 .env
 mkdir -p minio/data && sudo chown -R 65532:65532 minio/data   # 生产配置的 MinIO 镜像以 UID 65532 运行
 
-# 站点配置：生成口令哈希，替换 VPARSER_USER / VPARSER_PASSWORD_HASH
+# 站点配置：替换 VPARSER_GATE_KEY（随机字母数字），以及 Jaeger 的 VPARSER_USER / VPARSER_PASSWORD_HASH
 docker run --rm caddy:2-alpine caddy hash-password --plaintext '<口令>'
 cp deploy/vparser.caddy.example ~/goeuroops/deploy/sites/vparser.caddy   # 然后编辑
 
