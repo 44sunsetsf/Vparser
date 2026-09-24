@@ -271,7 +271,16 @@ func TestMetricsUseRouteTemplates(t *testing.T) {
 			t.Fatalf("metrics missing %s", want)
 		}
 	}
-	if strings.Contains(body, "12345") || strings.Contains(body, "987") {
-		t.Fatal("raw paths must never become label values")
+	// Only inspect route labels: the rest of the exposition (runtime/memory gauges) may contain any digits.
+	for _, line := range strings.Split(body, "\n") {
+		i := strings.Index(line, `route="`)
+		if i < 0 {
+			continue
+		}
+		route := line[i+len(`route="`):]
+		route = route[:strings.IndexByte(route, '"')]
+		if strings.Contains(route, "12345") || strings.Contains(route, "987") {
+			t.Fatalf("raw path leaked into route label: %q", route)
+		}
 	}
 }
