@@ -14,8 +14,17 @@ x-edge: &edge
     default: {}
     edge: {}
 
+# 容器日志默认不轮转，长期运行会越积越大：每个容器最多 3 个 10MB 文件
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
   mysql:
+    <<: *logging
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -33,6 +42,7 @@ services:
     cpus: 0.5
 
   kafka:
+    <<: *logging
     environment:
       # 日志压缩的去重缓冲区默认 128MB，会直接撑爆小堆；演示数据量很小，8MB 足够
       KAFKA_HEAP_OPTS: -Xms48m -Xmx128m
@@ -54,6 +64,7 @@ services:
     cpus: 0.5
 
   qdrant:
+    <<: *logging
     environment:
       QDRANT__SERVICE__MAX_WORKERS: 1
       QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS: 1
@@ -62,7 +73,7 @@ services:
     cpus: 0.5
 
   minio:
-    <<: *edge
+    <<: [*edge, *logging]
     # MinIO 官方已不再公开发布镜像（quay.io / Docker Hub 均拉不到），改用 Chainguard
     # 从开源源码构建的版本，按摘要固定。它以 UID 65532 运行，数据目录需要先 chown。
     image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
@@ -74,19 +85,22 @@ services:
     cpus: 0.5
 
   jaeger:
-    <<: *edge
+    <<: [*edge, *logging]
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
       MEMORY_MAX_TRACES: "2000"
     mem_limit: 128m
 
   redis:
+    <<: *logging
     mem_limit: 64m
 
   prometheus:
+    <<: *logging
     profiles: ["monitoring"]
 
   agent-py:
+    <<: *logging
     environment:
       # 线上实测一次分析约 2 分钟，几乎全花在模型接口上（Planner 33s、Executor 21s + 54s、Critic 12s），
       # 默认 120s 预算在第二轮就用完；放宽到 300s。server-go 的运行超时按它自动加 60s。
@@ -95,6 +109,7 @@ services:
     cpus: 0.75
 
   server-go:
+    <<: *logging
     environment:
       MINIO_PUBLIC_ENDPOINT: https://s3-vparser.${SITE_ADDRESS:?在 .env 里设置 SITE_ADDRESS，与 GoEuroOps 相同}
       CORS_ALLOWED_ORIGINS: https://vparser.${SITE_ADDRESS}
@@ -105,7 +120,7 @@ services:
     cpus: 1.0
 
   web:
-    <<: *edge
+    <<: [*edge, *logging]
     ports: !reset []
     mem_limit: 64m
 
