@@ -1,0 +1,243 @@
+syntax = "proto3";
+
+// Internal contract between the Go gateway (client) and the Python agent service (server).
+// Conventions:
+//   * Every call carries metadata `x-internal-token` and a gRPC deadline; the agent caps its own
+//     execution budget by the remaining deadline (deadline propagation).
+//   * Errors are gRPC status codes, never payload flags:
+//       INVALID_ARGUMENT     bad input or a failure that will never succeed on retry (permanent)
+//       FAILED_PRECONDITION  video context not built yet
+//       RESOURCE_EXHAUSTED   agent budget (time / tokens / cost) exhausted — do not retry
+//       UNAVAILABLE          transient dependency failure (model, Redis, MySQL, Qdrant) — retry
+//       DEADLINE_EXCEEDED    caller deadline reached — retry
+//       INTERNAL             unexpected — retry
+//   * Field names map 1:1 to the camelCase JSON the web client consumes (protoc json_name).
+package dovideo.agent.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "dovideo/server/gen/agent/v1;agentv1";
+
+enum AnalysisMode {
+  ANALYSIS_MODE_UNSPECIFIED = 0; // treated as GENERAL
+  GENERAL = 1;
+  LEARNING = 2;
+  REVIEW = 3;
+  CREATION = 4;
+}
+
+service AgentService {
+  // Runs the Planner -> Executor -> Critic workflow for (media, goal, mode). The video context
+  // checkpoint must already exist. Idempotent: a finished result is returned from the checkpoint.
+  rpc Run(RunRequest) returns (RunResponse);
+  // Returns the finished result if one exists.
+  rpc GetResult(GoalRef) returns (ResultResponse);
+  // Attaches another media's finished result (same content, same goal) to this media.
+  rpc ReuseResult(ReuseRequest) returns (ReuseResponse);
+  // Lightweight follow-up: retrieval + single-pass grounded answer (no plan/critic loop).
+  rpc FollowUp(FollowUpRequest) returns (FollowUpResponse);
+  rpc SearchEvidence(SearchEvidenceRequest) returns (SearchEvidenceResponse);
+  // Intent routing: picks the analysis mode for a goal. Rate limiting is the caller's job.
+  rpc ClassifyMode(ClassifyModeRequest) returns (RouteDecision);
+
+  rpc StageRevision(StageRevisionRequest) returns (StageRevisionResponse);
+  rpc BeginRevision(GoalRef) returns (BeginRevisionResponse);
+  rpc CompleteRevision(GoalRef) returns (Empty);
+  rpc CancelRevision(GoalRef) returns (Empty);
+
+  rpc SaveFeedback(AgentFeedback) returns (Empty);
+  rpc ListFeedback(MediaRef) returns (FeedbackList);
+
+  rpc GetPlan(GoalRef) returns (PlanResponse);
+  rpc GetTrace(GoalRef) returns (google.protobuf.Struct);
+  rpc GetEvaluation(GoalRef) returns (google.protobuf.Struct);
+
+  // Removes every agent-side artifact of a media (checkpoints, feedback, traces, vectors).
+  rpc Purge(MediaRef) returns (Empty);
+}
+
+message Empty {}
+
+message MediaRef {
+  int64 media_id = 1;
+}
+
+message GoalRef {
+  int64 media_id = 1;
+  string goal = 2;
+  AnalysisMode mode = 3;
+}
+
+// ---- domain objects ----
+
+message AgentPlan {
+  string understood_goal = 1;
+  repeated string tasks = 2;
+}
+
+message Evidence {
+  int64 timestamp_ms = 1;
+  string source = 2; // ASR | OCR | ASR+OCR
+  string content = 3;
+  string claim = 4;
+}
+
+message Section {
+  string key = 1;
+  string title = 2;
+  repeated string items = 3;
+}
+
+message AnalysisResult {
+  string title = 1;
+  repeated string conclusions = 2;
+  repeated Evidence evidence = 3;
+  repeated string suggestions = 4;
+  repeated Section sections = 5;
+}
+
+message CriticResult {
+  bool passed = 1;
+  repeated string feedback = 2;
+  repeated string missing_requirements = 3;
+  repeated string unsupported_claims = 4;
+  repeated int64 required_timestamps = 5;
+}
+
+message AgentState {
+  string goal = 1;
+  AgentPlan plan = 2;
+  AnalysisResult result = 3;
+  CriticResult critique = 4; // absent until the critic has run
+  int32 round = 5;
+}
+
+// Terminal status shown to the user (state is always COMPLETED here).
+message TaskStatus {
+  string state = 1;
+  string result = 2;  // markdown, possibly prefixed with a verification warning
+  string message = 3;
+}
+
+message VideoEvidenceHit {
+  int64 start_ms = 1;
+  int64 end_ms = 2;
+  string source = 3;
+  string snippet = 4;
+  string transcript = 5;
+  repeated string ocr_texts = 6;
+}
+
+message RouteDecision {
+  AnalysisMode mode = 1;
+  string reason = 2;
+}
+
+message AgentFeedback {
+  int64 media_id = 1;
+  string goal = 2;
+  AnalysisMode mode = 3;
+  optional int32 rating = 4;          // -1 or 1
+  optional string error_type = 5;
+  optional string comment = 6;
+  optional string corrected_goal = 7;
+  repeated string corrected_tasks = 8;
+  optional int64 evidence_timestamp = 9;
+  optional bool evidence_accepted = 10;
+  string created_at = 11;             // ISO-8601, set by the server
+}
+
+// ---- requests / responses ----
+
+// Stage timings and counters the gateway collected before calling Run (context build),
+// merged into the same trace so one analysis has one telemetry record.
+message TelemetrySeed {
+  string trace_id = 1;
+  map<string, StageTiming> stages = 2;
+  map<string, int64> counters = 3;
+}
+
+message StageTiming {
+  int64 duration_ms = 1;
+  bool success = 2;
+}
+
+message RunRequest {
+  int64 media_id = 1;
+  string goal = 2;
+  AnalysisMode mode = 3;
+  TelemetrySeed telemetry_seed = 4;
+}
+
+message RunResponse {
+  AgentState state = 1;
+  string markdown = 2;
+  TaskStatus task_status = 3;
+}
+
+message ResultResponse {
+  bool found = 1;
+  AgentState state = 2;
+  string markdown = 3;
+  TaskStatus task_status = 4;
+}
+
+message ReuseRequest {
+  int64 media_id = 1;
+  int64 source_media_id = 2;
+  string goal = 3;
+  AnalysisMode mode = 4;
+  string target_source = 5; // storage URL of the target media
+}
+
+message ReuseResponse {
+  bool reused = 1;
+  string markdown = 2;
+  TaskStatus task_status = 3;
+}
+
+message FollowUpRequest {
+  int64 media_id = 1;
+  optional string goal = 2; // the original analysis goal, for context
+  string question = 3;
+  AnalysisMode mode = 4;
+}
+
+message FollowUpResponse {
+  string answer = 1; // markdown citing timestamps as [mm:ss]; the web client turns them into seek links
+}
+
+message SearchEvidenceRequest {
+  int64 media_id = 1;
+  string query = 2;
+}
+
+message SearchEvidenceResponse {
+  repeated VideoEvidenceHit hits = 1;
+}
+
+message ClassifyModeRequest {
+  string goal = 1;
+}
+
+message StageRevisionRequest {
+  AgentFeedback feedback = 1;
+  AnalysisMode mode = 2;
+}
+
+message StageRevisionResponse {
+  string goal = 1; // the goal the revision will run under
+}
+
+message BeginRevisionResponse {
+  bool begun = 1;
+}
+
+message FeedbackList {
+  repeated AgentFeedback items = 1;
+}
+
+message PlanResponse {
+  bool found = 1;
+  AgentPlan plan = 2;
+}
