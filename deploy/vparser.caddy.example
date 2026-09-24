@@ -1,0 +1,29 @@
+# 复制到 GoEuroOps 的 deploy/sites/vparser.caddy，替换两处占位，然后 reload Caddy。
+# {$SITE_ADDRESS} 由 GoEuroOps 的 Caddy 容器环境变量提供。
+
+# 工作台：整站要口令（能导入任意视频链接，公开会被滥用）
+vparser.{$SITE_ADDRESS} {
+	encode zstd gzip
+	basic_auth {
+		VPARSER_USER VPARSER_PASSWORD_HASH
+	}
+	request_body {
+		max_size 2GB
+	}
+	reverse_proxy web:80 {
+		flush_interval -1
+	}
+}
+
+# 视频播放用的预签名链接：签名本身就是授权，不再加口令
+s3-vparser.{$SITE_ADDRESS} {
+	reverse_proxy minio:9000
+}
+
+# Jaeger 链路追踪界面：和工作台同一个口令
+jaeger-vparser.{$SITE_ADDRESS} {
+	basic_auth {
+		VPARSER_USER VPARSER_PASSWORD_HASH
+	}
+	reverse_proxy jaeger:16686
+}
