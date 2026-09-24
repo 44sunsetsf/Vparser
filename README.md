@@ -1,3 +1,5 @@
+<p align="right"><a href="README.zh-CN.md"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/lang-dark.svg"><img alt="EN | 中文 — switch to Chinese" src="docs/images/lang-light.svg" width="112"></picture></a></p>
+
 <div align="center">
   <h2>Vparser</h2>
   <p>
@@ -9,117 +11,117 @@
     <img src="https://img.shields.io/badge/Vue-3-42B883?style=flat-square" alt="Vue 3">
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="MIT License"></a>
   </p>
-  <p>面向长视频内容理解的 <strong>Video Agent</strong>：把几个小时的课程、讲座变成可检索、可追溯、可以继续追问的结构化笔记。</p>
+  <p>A <strong>video agent</strong> for long-form content: it turns hours of lectures and talks into structured notes you can search, trace back and keep asking questions about.</p>
 </div>
 
-## 它能做什么
+## What it does
 
-上传一段视频（本地文件或在线链接），写下你想得到的东西，比如复习笔记、观点审查、剪辑脚本。Agent 会读懂语音和画面文字，给出结构化结果，**每条结论都带时间戳**，点一下就跳回原画面核对。结果之后还能继续追问。
+Upload a video (a local file or an online link) and describe what you want from it — revision notes, a critique of the arguments, an editing script. The agent reads both the speech and the on-screen text and returns a structured result in which **every claim carries a timestamp**; click it to jump back to the original frame and check. You can keep asking follow-up questions afterwards.
 
-## 界面预览
+## Screenshots
 
-**工作台**：上传本地视频或导入链接（支持秒传与断点续传），管理自己的视频。
+**Workspace**: upload a local video or import a link (instant upload for known files, resumable uploads) and manage your videos.
 
-![工作台](docs/images/workspace.jpg)
+![Workspace](docs/images/workspace.jpg)
 
-**分析结果**：原视频与结构化结论并排，点击时间戳即可跳回对应画面。
+**Analysis result**: the original video and the structured findings side by side; click a timestamp to jump to that moment.
 
-![分析结果](docs/images/agent-result.jpg)
+![Analysis result](docs/images/agent-result.jpg)
 
-**时间戳证据**：每条结论都绑定可核验的 ASR / OCR 原文；未通过 Critic 校验的结果会明确提示。
+**Timestamped evidence**: every finding is bound to verifiable ASR / OCR source text; results that fail the Critic check are clearly flagged.
 
-![时间戳证据](docs/images/agent-evidence.jpg)
+![Timestamped evidence](docs/images/agent-evidence.jpg)
 
-**全链路追踪**：一次分析是一条跨 server-go 与 agent-py 的 trace（本例 155 个 span），Planner、Executor 与每次模型调用的耗时一目了然。
+**End-to-end tracing**: one analysis is a single trace spanning server-go and agent-py (155 spans in this example), showing the time spent in the Planner, the Executor and every model call.
 
-![Jaeger 链路](docs/images/trace-agent.jpg)
+![Jaeger trace](docs/images/trace-agent.jpg)
 
-## 架构
+## Architecture
 
 ```
-浏览器 ──HTTP/SSE──► nginx ──► server-go (Go) ──gRPC──► agent-py (Python)
-                                 │  鉴权 · 秒传/分片上传 · 限流 · 幂等
-                                 │  Kafka 生产与消费（分级重试 + DLQ）
-                                 │  分布式锁 · VideoContext 构建（FFmpeg / ASR / OCR）
+browser ──HTTP/SSE──► nginx ──► server-go (Go) ──gRPC──► agent-py (Python)
+                                 │  auth · instant/chunked upload · rate limiting · idempotency
+                                 │  Kafka produce & consume (tiered retry + DLQ)
+                                 │  distributed locks · VideoContext building (FFmpeg / ASR / OCR)
                                  ▼
           MySQL · Redis · Kafka · MinIO · Qdrant · Jaeger · Prometheus
 ```
 
-- **server-go**：对外的全部接口，负责接入、调度和重 I/O 的多模态预处理。
-- **agent-py**：Planner → Executor → Critic 受控工作流、检索、证据校验、预算与 Checkpoint，只在内网提供 gRPC 服务。
-- 服务之间的契约见 [`proto/agent/v1/agent.proto`](proto/agent/v1/agent.proto) 和 [`docs/architecture.md`](docs/architecture.md)。
+- **server-go**: every public API; handles ingestion, scheduling and the I/O-heavy multimodal preprocessing.
+- **agent-py**: the controlled Planner → Executor → Critic workflow, retrieval, evidence checking, budgets and checkpoints; exposed over gRPC on the internal network only.
+- The contract between the services lives in [`proto/agent/v1/agent.proto`](proto/agent/v1/agent.proto) and [`docs/architecture.md`](docs/architecture.md).
 
-## 核心设计
+## Core design
 
-**可靠的任务链路**
-- 秒传：Web Worker 计算整文件 MD5，服务端再随机抽一段字节做挑战校验，防止拿到别人视频的 MD5 就能“秒传”冒领。
-- 分片上传 + 断点续传：5MB 分片，Redis Set 记录进度，合并阶段加锁。
-- Kafka 异步化：幂等生产者 + `acks=all`；按内容哈希分区；手动提交 offset；10s / 60s 两级重试 topic，最后进 DLQ。
-- 自研 Redis 分布式锁：`SET NX PX` + 看门狗续期 + Lua 比对删除 + 丢锁感知。
-- 多层去重：提交幂等 key、消费互斥锁、同内容同目标结果复用、同内容上下文复用。
-- Redis Lua 令牌桶：用户级与全局两级限流。
+**A reliable task pipeline**
+- Instant upload: a Web Worker hashes the whole file with MD5, then the server challenges the client for a random byte range, so knowing someone else's MD5 is not enough to "instantly upload" their video.
+- Chunked, resumable upload: 5 MB chunks, progress tracked in a Redis set, a lock held while merging.
+- Kafka for async work: idempotent producer with `acks=all`; partitioned by content hash; manual offset commits; 10 s / 60 s retry topics, then a DLQ.
+- A home-grown Redis distributed lock: `SET NX PX` + watchdog renewal + compare-and-delete in Lua + lock-loss detection.
+- Layered deduplication: idempotency keys on submission, a mutex on consumption, result reuse for the same content and goal, context reuse for the same content.
+- Redis Lua token bucket: per-user and global rate limits.
 
-**时序多模态 VideoContext**
-- 音频按 60 秒切片做 ASR；画面按场景变化抽关键帧，另加 30 秒保底，再用差异哈希去重后做 OCR。
-- 两路用 goroutine + 有界 worker 池并行，合并成统一的时间轴片段。
+**Temporal multimodal VideoContext**
+- Audio is cut into 60-second slices for ASR; keyframes are taken on scene changes plus a 30-second fallback, deduplicated by difference hash, then run through OCR.
+- Both paths run in parallel on goroutines with bounded worker pools and are merged into one timeline of segments.
 
-**受控 Agent**
-- Planner → Executor → Critic 最多两轮，之后再用代码逐条核验证据：时间戳是否落在片段内、原文能否在 ASR/OCR 中找到。
-- 时长、Token、成本三重预算；gRPC deadline 一路传到 Agent，限制它的执行时长。
-- 长视频按 5 分钟分块，做摘要、关键词与 bge-m3 向量；语义 + 关键词 + 画面文字三路加权检索；Qdrant 不可用时自动降级。
-- 阶段级 Checkpoint（MySQL 真源 + Redis 缓存），失败后从最近完成的阶段恢复。
-- 追问走轻量链路：检索 + 单轮有据回答，并核验引用的时间戳。
+**A controlled agent**
+- Planner → Executor → Critic for at most two rounds, after which code verifies every piece of evidence: does the timestamp fall inside a segment, and can the quoted text be found in the ASR/OCR output?
+- Three budgets — duration, tokens and cost; the gRPC deadline is propagated all the way into the agent to bound its run time.
+- Long videos are split into 5-minute chunks with summaries, keywords and bge-m3 embeddings; retrieval blends semantic, keyword and on-screen-text signals; falls back gracefully when Qdrant is unavailable.
+- Stage-level checkpoints (MySQL as source of truth, Redis as cache) let a failed run resume from the last completed stage.
+- Follow-up questions take a lightweight path: retrieval plus a single grounded answer, with the cited timestamps verified.
 
-**可观测性**
-- OpenTelemetry 全链路追踪：HTTP → Kafka → gRPC → 模型调用，一次分析在 Jaeger 里是一条完整的 trace。
-- Prometheus 指标：接口延迟、提交结果、消费耗时、重试 / DLQ、锁竞争、模型延迟与 Token 用量、Critic 通过率、预算终止次数。
-- 前端通过 SSE + Redis Pub/Sub 实时接收任务阶段，支持多实例。
+**Observability**
+- OpenTelemetry tracing end to end: HTTP → Kafka → gRPC → model calls; one analysis is one complete trace in Jaeger.
+- Prometheus metrics: API latency, submission outcomes, consumer time, retries / DLQ, lock contention, model latency and token usage, Critic pass rate, budget terminations.
+- The frontend receives task stages in real time over SSE + Redis Pub/Sub, which works across multiple instances.
 
-## 快速开始
+## Quick start
 
-只需要安装并启动 Docker Desktop：
+All you need is Docker Desktop, installed and running:
 
 ```bash
-./scripts/start.sh   # 首次运行会生成 .env 并询问硅基流动 API Key；全部服务健康后自动打开浏览器
-./scripts/stop.sh    # 停止（数据保留）
+./scripts/start.sh   # first run creates .env and asks for a SiliconFlow API key; opens the browser once every service is healthy
+./scripts/stop.sh    # stop (data is kept)
 ```
 
-| 地址 | 内容 |
+| URL | What |
 |---|---|
-| http://localhost:8080 | Web 工作台 |
-| http://localhost:16686 | Jaeger 链路追踪 |
+| http://localhost:8080 | Web workspace |
+| http://localhost:16686 | Jaeger tracing |
 | http://localhost:19090 | Prometheus |
 
-脚本会自动避开被占用的端口，实际地址以脚本输出为准。可以用 `docs/samples/binary-tree-demo.mp4`（30 秒示例视频）体验，一次分析大约需要 1 到 3 分钟，取决于模型响应速度。
+The script avoids ports that are already taken, so check its output for the actual addresses. Try it with `docs/samples/binary-tree-demo.mp4` (a 30-second sample); one analysis takes roughly 1 to 3 minutes depending on how fast the model responds.
 
-### 本地开发
+### Local development
 
 ```bash
-cp .env.example .env                   # 填写密码与 SILICONFLOW_API_KEY
-./scripts/dev-up.sh                    # 只启动中间件（MySQL/Redis/Kafka/MinIO/Qdrant/Jaeger/Prometheus）
+cp .env.example .env                   # fill in passwords and SILICONFLOW_API_KEY
+./scripts/dev-up.sh                    # start middleware only (MySQL/Redis/Kafka/MinIO/Qdrant/Jaeger/Prometheus)
 set -a; source .env; set +a
 (cd agent-py && uv run python -m app.server) &
 (cd server-go && go run ./cmd/server) &
 (cd client && npm ci && npm run dev)   # http://localhost:5173
 ```
 
-修改 `proto/` 后，执行 `./scripts/gen-proto.sh` 重新生成 Go 和 Python 的桩代码（生成代码随仓库提交，CI 会检查是否与 proto 一致）。
+After changing `proto/`, run `./scripts/gen-proto.sh` to regenerate the Go and Python stubs (generated code is committed, and CI checks that it matches the proto).
 
-## 目录结构
+## Repository layout
 
 ```text
 Vparser
-├── proto/               # gRPC 契约（唯一真源）
-├── server-go/           # Go 网关：HTTP API、Kafka、锁、限流、VideoContext 构建
-├── agent-py/            # Python Agent：工作流、检索、证据校验、Checkpoint
-├── client/              # Vue 3 工作台（nginx 托管）
-├── deploy/              # Prometheus 配置
-├── docs/                # 架构与契约、示例视频
-├── scripts/             # 一键启动、停止、中间件、生成桩代码
+├── proto/               # gRPC contract (single source of truth)
+├── server-go/           # Go gateway: HTTP API, Kafka, locks, rate limiting, VideoContext building
+├── agent-py/            # Python agent: workflow, retrieval, evidence checking, checkpoints
+├── client/              # Vue 3 workspace (served by nginx)
+├── deploy/              # Prometheus configuration
+├── docs/                # architecture & contract, sample video
+├── scripts/             # one-click start/stop, middleware, stub generation
 └── docker-compose.yml
 ```
 
-## 测试
+## Tests
 
 ```bash
 (cd server-go && go test -race ./...)
