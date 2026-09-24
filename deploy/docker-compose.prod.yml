@@ -53,6 +53,9 @@ services:
 
   minio:
     <<: *edge
+    # MinIO 官方已不再公开发布镜像（quay.io / Docker Hub 均拉不到），改用 Chainguard
+    # 从开源源码构建的版本，按摘要固定。它以 UID 65532 运行，数据目录需要先 chown。
+    image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
     environment:
       GOMAXPROCS: 1
       GOGC: 50

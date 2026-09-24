@@ -30,6 +30,7 @@ git clone https://github.com/44sunsetsf/Vparser.git ~/vparser && cd ~/vparser
 # .env：参照 .env.example 填写各项密码和 SILICONFLOW_API_KEY，另加
 #   SITE_ADDRESS=<与 GoEuroOps 相同>
 chmod 600 .env
+mkdir -p minio/data && sudo chown -R 65532:65532 minio/data   # 生产配置的 MinIO 镜像以 UID 65532 运行
 
 # 站点配置：生成口令哈希，替换 VPARSER_USER / VPARSER_PASSWORD_HASH
 docker run --rm caddy:2-alpine caddy hash-password --plaintext '<口令>'
