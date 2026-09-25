@@ -40,6 +40,7 @@ from ..models.dto import (
 from ..observability import LLM_CALL_DURATION, LLM_TOKENS, span
 from ..telemetry import AgentTelemetry, estimate_tokens
 from . import prompts as P
+from .. import language as L
 
 log = logging.getLogger("agent.llm")
 
@@ -129,7 +130,8 @@ class DeepSeekClient:
     def plan(self, context: VideoContext, mode_instruction: str = "") -> AgentPlan:
         try:
             prompt = (P.PLAN_HEAD + _json(context)
-                      + P.mode_suffix("本次分析模式的额外拆解要求：", mode_instruction))
+                      + P.mode_suffix("本次分析模式的额外拆解要求：", mode_instruction)
+                      + L.prompt_suffix(L.detect(context.user_goal)))
             return self._structured_chat("PLANNER", prompt, AgentPlan)
         except Exception as e:
             raise AgentError("Agent 任务规划失败") from e
@@ -139,7 +141,8 @@ class DeepSeekClient:
         try:
             prompt = (P.REPLAN_HEAD + _json(current_plan) + P.REPLAN_CRITIC + _json(critique)
                       + P.REPLAN_CONTEXT + _json(context)
-                      + P.mode_suffix("本次分析模式的额外拆解要求：", mode_instruction))
+                      + P.mode_suffix("本次分析模式的额外拆解要求：", mode_instruction)
+                      + L.prompt_suffix(L.detect(context.user_goal)))
             return self._structured_chat("REPLANNER", prompt, AgentPlan)
         except Exception as e:
             raise AgentError("Agent 任务重规划失败") from e
@@ -148,7 +151,8 @@ class DeepSeekClient:
                     mode_instruction: str = "") -> AgentPlan:
         try:
             prompt = (P.REPAIR_HEAD + _json(invalid_plan) + P.REPAIR_CONTEXT + _json(context)
-                      + P.mode_suffix("本次分析模式的额外拆解要求：", mode_instruction))
+                      + P.mode_suffix("本次分析模式的额外拆解要求：", mode_instruction)
+                      + L.prompt_suffix(L.detect(context.user_goal)))
             return self._structured_chat("PLANNER_REPAIR", prompt, AgentPlan)
         except Exception as e:
             raise AgentError("Agent 任务计划修复失败") from e
@@ -161,7 +165,8 @@ class DeepSeekClient:
 
     def classify_mode(self, goal: str) -> ModeClassification:
         try:
-            return self._structured_chat("MODE_ROUTER", P.CLASSIFY_HEAD + goal, ModeClassification)
+            return self._structured_chat("MODE_ROUTER", P.CLASSIFY_HEAD + goal + L.prompt_suffix(L.detect(goal)),
+                                         ModeClassification)
         except Exception as e:
             raise AgentError("意图路由分类失败") from e
 
@@ -176,7 +181,8 @@ class DeepSeekClient:
                 mode_instruction: str = "") -> AnalysisResult:
         try:
             prompt = (P.EXECUTE_HEAD + _json(plan) + P.EXECUTE_PREVIOUS_CRITIQUE + _json(previous_critique)
-                      + P.EXECUTE_CONTEXT + _json(context) + P.execute_suffix(mode_instruction))
+                      + P.EXECUTE_CONTEXT + _json(context) + P.execute_suffix(mode_instruction)
+                      + L.prompt_suffix(L.detect(context.user_goal)))
             return self._structured_chat("EXECUTOR", prompt, AnalysisResult)
         except Exception as e:
             raise AgentError("Agent 执行失败") from e
@@ -186,7 +192,8 @@ class DeepSeekClient:
         try:
             prompt = (P.CRITIQUE_HEAD + _json(plan) + P.CRITIQUE_DRAFT + _json(result)
                       + P.CRITIQUE_CONTEXT + _json(context)
-                      + P.mode_suffix("本次审查模式的额外校验要求：", mode_instruction))
+                      + P.mode_suffix("本次审查模式的额外校验要求：", mode_instruction)
+                      + L.prompt_suffix(L.detect(context.user_goal)))
             return self._structured_chat("CRITIC", prompt, CriticResult)
         except Exception as e:
             raise AgentError("Critic 校验失败") from e

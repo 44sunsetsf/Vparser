@@ -319,6 +319,19 @@ const ROWS = {
   'ws.ms': ['{n} 毫秒', '{n} ms', '{n} ms'],
   'ws.s': ['{n} 秒', '{n} s', '{n} s'],
 
+
+  // progress pushed by the server, by stage (mirrors StatusMessage in server-go/internal/analysis/status.go)
+  'progress.QUEUED': ['任务已排队', 'Queued', 'I kö'],
+  'progress.CONTEXT': ['正在解析视频语音和关键画面', 'Reading the speech and key frames', 'Läser talet och viktiga bildrutor'],
+  'progress.RETRIEVAL': ['正在检索与目标相关的视频证据', 'Finding evidence related to your goal', 'Söker belägg som hör till ditt mål'],
+  'progress.AGENT_LOOP': ['多模态上下文已就绪，Agent 开始分析', 'The context is ready, the agent is starting', 'Underlaget är klart, agenten börjar'],
+  'progress.PLAN_COMPLETED': ['Planner 已完成任务拆解', 'The Planner has broken the goal into tasks', 'Planner har delat upp målet i uppgifter'],
+  'progress.EXECUTOR': ['Executor 正在生成结构化产物', 'The Executor is writing the result', 'Executor skriver resultatet'],
+  'progress.CRITIC': ['Critic 正在核验结论和证据', 'The Critic is checking conclusions and evidence', 'Critic kontrollerar slutsatser och belägg'],
+  'progress.REFRESH': ['正在根据 Critic 反馈补充证据', "Adding evidence based on the Critic's feedback", 'Kompletterar belägg utifrån Critics återkoppling'],
+  'progress.RETRYING': ['任务执行异常，正在自动重试', 'Something went wrong, retrying automatically', 'Något gick fel, försöker igen automatiskt'],
+  'progress.DEFAULT': ['正在分析视频', 'Analysing the video', 'Analyserar videon'],
+
   // helpers
   'time.s': ['{s} 秒', '{s} s', '{s} s'],
   'time.ms': ['{m} 分 {s} 秒', '{m} min {s} s', '{m} min {s} s'],
@@ -339,6 +352,25 @@ const ROWS = {
   'api.unreachable': ['无法连接后端服务，请确认后端已启动且地址配置正确', 'Cannot reach the server. Check that the backend is running and the address is right.', 'Servern går inte att nå. Kontrollera att backend körs och att adressen stämmer.'],
   'stream.failed': ['事件流连接失败（HTTP {status}）', 'Could not connect to task updates (HTTP {status})', 'Kunde inte ansluta till jobbuppdateringar (HTTP {status})'],
   'stream.noBody': ['服务端未返回事件流', 'The server returned no update stream', 'Servern skickade ingen uppdateringsström']
+}
+
+const STAGE_PROGRESS = {
+  '': 'QUEUED', QUEUED: 'QUEUED', VIDEO_CONTEXT: 'CONTEXT', CONTEXT_COMPLETED: 'CONTEXT', CHUNKS_COMPLETED: 'RETRIEVAL',
+  RETRIEVAL: 'RETRIEVAL', AGENT_LOOP: 'AGENT_LOOP', PLAN_COMPLETED: 'PLAN_COMPLETED', EXECUTOR_STARTED: 'EXECUTOR',
+  EXECUTOR_COMPLETED: 'EXECUTOR', CRITIC_STARTED: 'CRITIC', CRITIC_RETRY_REQUIRED: 'REFRESH', EVIDENCE_REFRESHED: 'REFRESH',
+  RETRYING: 'RETRYING'
+}
+const HAS_CHINESE = /[\u3400-\u9fff]/
+
+/**
+ * Text the server sent (progress, failure reasons) is Chinese. In Chinese it is shown as is; in other
+ * languages a known stage gets its translated progress line and any other Chinese text a translated fallback.
+ */
+export function serverText(message, { stage, fallback = 'progress.DEFAULT' } = {}) {
+  if (locale.value === 'zh') return message || t(fallback)
+  if (stage !== undefined && stage !== null && STAGE_PROGRESS[stage]) return t(`progress.${STAGE_PROGRESS[stage]}`)
+  if (!message || HAS_CHINESE.test(message)) return t(fallback)
+  return message
 }
 
 const MESSAGES = { zh: {}, en: {}, sv: {} }

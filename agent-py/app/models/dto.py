@@ -15,6 +15,7 @@ from pydantic import (
 from pydantic.alias_generators import to_camel
 
 from ..errors import InvalidArgumentError
+from .. import language
 from ..textutil import is_blank, trim
 
 
@@ -293,14 +294,16 @@ class AnalysisResult(CamelModel):
     suggestions: StrList = Field(default_factory=list)
     sections: Annotated[list[Section], BeforeValidator(_list_or_empty)] = Field(default_factory=list)
 
-    def to_markdown(self) -> str:
-        out = ["## ", self.title, "\n\n## 核心结论\n"]
+    def to_markdown(self, lang: str = "zh") -> str:
+        """Headings follow the report language (see app.language); Chinese output is unchanged."""
+        words = language.labels(lang)
+        out = ["## ", self.title, f"\n\n## {words['conclusions']}\n"]
         for item in self.conclusions:
             out.append(f"- {item}\n")
-        out.append("\n## 视频证据\n")
+        out.append(f"\n## {words['evidence']}\n")
         for e in self.evidence:
-            out.append(f"- [{_format_time(e.timestamp_ms)}] {e.source}：{e.content}\n")
-        out.append("\n## 建议\n")
+            out.append(f"- [{_format_time(e.timestamp_ms)}] {e.source}{words['colon']}{e.content}\n")
+        out.append(f"\n## {words['suggestions']}\n")
         for item in self.suggestions:
             out.append(f"- {item}\n")
         for section in self.sections:
@@ -422,13 +425,15 @@ class TaskStatus(CamelModel):
 
     @staticmethod
     def completed_from_state(agent_state: AgentState) -> "TaskStatus":
-        markdown = agent_state.result.to_markdown()
+        lang = language.detect(agent_state.goal)
+        words = language.labels(lang)
+        markdown = agent_state.result.to_markdown(lang)
         if agent_state.critique is not None and agent_state.critique.passed:
             return TaskStatus.completed(markdown)
-        warning = "分析已完成，但部分结论未通过 Critic 校验，请结合时间戳证据人工核验。"
+        warning = words["warning"]
         return TaskStatus(
             state=TaskState.COMPLETED,
-            result="> **结果提示：** " + warning + "\n\n" + markdown,
+            result=f"> **{words['note']}{words['colon'].strip() or ':'}** " + warning + "\n\n" + markdown,
             message=warning,
         )
 

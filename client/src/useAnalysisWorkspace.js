@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { apiRequest } from './api'
 import { DEMO_EVALUATION, DEMO_ITEM, DEMO_PLAN, DEMO_RESULT, DEMO_TRACE } from './demoData'
 import { renderMarkdown } from './markdown'
-import { t } from './i18n'
+import { serverText, t } from './i18n'
 
 // 分析模式选项。GENERAL/LEARNING/REVIEW/CREATION 与后端 AnalysisMode 枚举一一对应,value 直接作为 mode 参数;
 // AUTO 是纯前端选项:提交前先调 /analysis/route 让 AI 判定出具体模式,再据此发起分析——
@@ -180,7 +180,7 @@ export function useAnalysisWorkspace({
         sidebar.value.streamOffline = false
         sidebar.value.streamRetry = 0
         if (status.message && (status.state === 'PROCESSING' || status.state === 'QUEUED')) {
-          sidebar.value.statusMessage = status.message
+          sidebar.value.statusMessage = serverText(status.message, { stage: status.stage })
         }
       }
       if (type === 'ai' && status.stage && isCurrentTask()) {
@@ -190,7 +190,7 @@ export function useAnalysisWorkspace({
         await refreshMediaList()
         await finish(status.result || (type === 'ai' ? t('ws.analysisDone') : ''))
       } else if (status.state === 'FAILED') {
-        await finish(status.message || t('ws.taskError'), true)
+        await finish(serverText(status.message, { fallback: 'ws.taskError' }), true)
       }
     }, (error, attempt, terminal = false) => {
       // isCurrentTask 保证用户已切换视频或关闭面板时，旧任务的错误不会写到新页面上。
@@ -344,11 +344,11 @@ export function useAnalysisWorkspace({
       } else if (status.state === 'QUEUED' || status.state === 'PROCESSING') {
         sidebar.value.mode = 'result'
         sidebar.value.loading = true
-        sidebar.value.statusMessage = status.message || t('ws.restoring')
+        sidebar.value.statusMessage = serverText(status.message, { fallback: 'ws.restoring' })
         startTaskStream(item.id, 'ai', goal, analysisMode)
         await refreshAgentMeta(item.id, goal, false, analysisMode)
       } else if (status.state === 'FAILED') {
-        sidebar.value.error = status.message || t('ws.lastUnfinished')
+        sidebar.value.error = serverText(status.message, { fallback: 'ws.lastUnfinished' })
       }
     } catch (error) {
       console.warn('Previous analysis unavailable', error)

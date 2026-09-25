@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from ..checkpoint.service import AgentCheckpointService
 from ..errors import InvalidArgumentError, VideoContextNotReadyError
 from ..llm import prompts as P
+from .. import language as L
 from ..llm.deepseek import DeepSeekClient
 from ..models.dto import AnalysisMode, TaskStage, VideoContext, VideoSegment
 from ..observability import span
@@ -90,7 +91,7 @@ def build_prompt(question: str, segments: list[VideoSegment], goal: str | None =
     prompt = P.FOLLOW_UP_HEAD + question
     if goal is not None and previous_summary is not None:
         prompt += P.FOLLOW_UP_GOAL + goal + P.FOLLOW_UP_PREVIOUS + previous_summary[:MAX_PREVIOUS_CHARS]
-    return prompt + P.FOLLOW_UP_CONTEXT + _segments_json(segments)
+    return prompt + P.FOLLOW_UP_CONTEXT + _segments_json(segments) + L.answer_suffix(L.detect(question))
 
 
 class FollowUpService:
