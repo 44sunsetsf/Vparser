@@ -10,20 +10,39 @@ export const LOCALES = [
   { value: 'sv', label: 'SV' }
 ]
 
+/** Chinese and Swedish browsers get their own language, every other browser gets English. */
+export function browserLocale(languages) {
+  for (const tag of languages || []) {
+    const l = String(tag).toLowerCase()
+    if (l.startsWith('zh')) return 'zh'
+    if (l.startsWith('sv')) return 'sv'
+    if (l.startsWith('en')) return 'en'
+  }
+  return 'en'
+}
+
+/** ?lang= wins, then the visitor's own earlier choice, then the browser's languages. */
 function initialLocale() {
   try {
     const wanted = new URLSearchParams(window.location.search).get('lang') || localStorage.getItem(STORAGE_KEY)
     if (wanted && HTML_LANG[wanted]) return wanted
+    return browserLocale(navigator.languages || [navigator.language])
   } catch {
     // Outside the browser (unit tests) or with storage disabled: fall back to Chinese.
+    return 'zh'
   }
-  return 'zh'
 }
 
 export const locale = ref(initialLocale())
 
-watch(locale, value => {
+/** An explicit choice is remembered; until then the language keeps following the browser. */
+export function setLocale(value) {
+  if (!HTML_LANG[value]) return
+  locale.value = value
   try { localStorage.setItem(STORAGE_KEY, value) } catch { /* private mode */ }
+}
+
+watch(locale, value => {
   if (typeof document !== 'undefined') document.documentElement.lang = HTML_LANG[value] || 'zh-CN'
 }, { immediate: true })
 

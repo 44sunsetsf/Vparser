@@ -505,9 +505,8 @@ import {
   validateVideoFile
 } from './chunkUpload'
 import { DEMO_ITEM } from './demoData'
-import { LOCALES, locale, localeTag, t } from './i18n'
+import { LOCALES, locale, localeTag, setLocale, t } from './i18n'
 
-const setLocale = value => { locale.value = value }
 import { createTaskStreams } from './taskEvents'
 import { useAnalysisWorkspace } from './useAnalysisWorkspace'
 
