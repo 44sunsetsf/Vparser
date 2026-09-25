@@ -37,6 +37,16 @@ from .modes import ModeProfile
 log = logging.getLogger("agent.loop")
 
 MAX_PLAN_TASKS = 5
+MAX_TASK_CHARS = 500
+
+
+def _tidy_plan(plan: AgentPlan | None) -> AgentPlan | None:
+    """Small deviations should not fail a run: drop blank tasks, keep the first MAX_PLAN_TASKS, trim overlong
+    ones. A plan with no usable task or no understood goal still goes to repair."""
+    if plan is None or plan.tasks is None:
+        return plan
+    tasks = [trim(t)[:MAX_TASK_CHARS] for t in plan.tasks if t is not None and not is_blank(t)][:MAX_PLAN_TASKS]
+    return plan.model_copy(update={"tasks": tasks})
 
 
 def _safe_list(values):
@@ -170,9 +180,10 @@ class AgentLoopService:
             with self._stage_span("agent.planner", "PLANNER"):
                 plan = self._deepseek.plan(context, _plan_instruction(profile))
             should_persist = True
+        plan = _tidy_plan(plan)
         if not self._is_plan_valid(plan):
             with self._stage_span("agent.planner", "PLANNER_REPAIR"):
-                plan = self._deepseek.repair_plan(context, plan, _plan_instruction(profile))
+                plan = _tidy_plan(self._deepseek.repair_plan(context, plan, _plan_instruction(profile)))
             self._telemetry.increment_current("planStructureRepairs", 1)
             should_persist = True
         self._validate_plan(plan)

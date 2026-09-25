@@ -55,7 +55,30 @@ def _to_long(v: Any) -> Any:
 
 TrimStr = Annotated[str, BeforeValidator(_trim_or(""))]
 KeepStr = Annotated[str, BeforeValidator(_keep_or(""))]
-StrList = Annotated[list[str], BeforeValidator(_list_or_empty)]
+def _as_text(v: Any) -> Any:
+    """One list item as text. Models sometimes answer a list of strings with objects, e.g. a self-test item as
+    {"question": ..., "answer": ...}; keep the content instead of failing the whole analysis."""
+    if v is None or isinstance(v, str):
+        return v
+    if isinstance(v, bool):
+        return str(v).lower()
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, dict):
+        parts = [_as_text(x) for x in v.values()]
+        return " — ".join(p for p in parts if isinstance(p, str) and p.strip())
+    if isinstance(v, (list, tuple)):
+        parts = [_as_text(x) for x in v]
+        return "；".join(p for p in parts if isinstance(p, str) and p.strip())
+    return v
+
+
+def _text_list(v: Any) -> Any:
+    v = _list_or_empty(v)
+    return [_as_text(x) for x in v] if isinstance(v, list) else v
+
+
+StrList = Annotated[list[str], BeforeValidator(_text_list)]
 Int64 = Annotated[int, BeforeValidator(_to_long)]
 LongList = Annotated[list[Int64], BeforeValidator(_list_or_empty)]
 
