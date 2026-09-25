@@ -3,6 +3,9 @@ package httpapi
 import (
 	"encoding/json"
 	"io"
+	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -40,6 +43,9 @@ func mapAuthCode(code int) common.ErrorCode {
 }
 
 func authResult(c *gin.Context, resp model.AuthResponse) {
+	if resp.UserInfo != nil {
+		c.Header(UserHeader, strconv.FormatInt(resp.UserInfo.ID, 10))
+	}
 	if resp.Code != 200 {
 		fail(c, common.Business(mapAuthCode(resp.Code), resp.Msg))
 		return
@@ -50,6 +56,18 @@ func authResult(c *gin.Context, resp model.AuthResponse) {
 		data.Token = &t
 	}
 	ok(c, data)
+}
+
+// attemptHeader echoes the username a login or sign-up was tried with, so the owner's analytics can show failed
+// attempts. It is what the caller typed themselves; nothing is revealed.
+func attemptHeader(c *gin.Context, username *string) {
+	if username != nil {
+		name := strings.TrimSpace(*username)
+		if len(name) > 32 {
+			name = name[:32]
+		}
+		c.Header("X-Vparser-Attempt", url.QueryEscape(name))
+	}
 }
 
 // authConfig is public: the login form uses it to show the invite notice and the demo account.
@@ -71,6 +89,7 @@ func (a *API) register(c *gin.Context) {
 		fail(c, err)
 		return
 	}
+	attemptHeader(c, req.Username)
 	resp, err := a.Auth.Register(c.Request.Context(), req)
 	if err != nil {
 		fail(c, err)
@@ -89,6 +108,7 @@ func (a *API) login(c *gin.Context) {
 		fail(c, err)
 		return
 	}
+	attemptHeader(c, req.Username)
 	resp, err := a.Auth.Login(c.Request.Context(), req)
 	if err != nil {
 		fail(c, err)

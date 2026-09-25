@@ -132,6 +132,8 @@ func (a *API) authRequired() gin.HandlerFunc {
 			return
 		}
 		c.Set(userIDKey, id)
+		// the gateway logs this response header, so the owner's analytics can tell which account a visitor used
+		c.Header(UserHeader, strconv.FormatInt(id, 10))
 		// agent calls made for this request are charged to this user (see billing)
 		c.Request = c.Request.WithContext(billing.WithUser(c.Request.Context(), id))
 		c.Next()
@@ -139,6 +141,9 @@ func (a *API) authRequired() gin.HandlerFunc {
 }
 
 func userID(c *gin.Context) int64 { return c.GetInt64(userIDKey) }
+
+// UserHeader carries the signed-in account id on responses (no credentials, just the id).
+const UserHeader = "X-Vparser-User"
 
 // httpMetrics records http_request_duration_seconds labelled by the matched route template
 // (/analysis/agent-plan, /admin/failed-analysis/:id/replay), never the raw path, so ids and query
