@@ -259,6 +259,21 @@ type AuthRequest struct {
 	Username *string `json:"username"`
 	Password *string `json:"password"`
 	Nickname *string `json:"nickname"`
+	// InviteCode is required to register when the server sets REGISTRATION_INVITE_CODE.
+	InviteCode *string `json:"inviteCode"`
+}
+
+// AuthConfig tells the login form what to show: whether sign-up needs an invite code, and the
+// public demo account (if any) with its daily AI allowance in CNY.
+type AuthConfig struct {
+	InviteOnly bool       `json:"inviteOnly"`
+	Demo       *DemoLogin `json:"demo"`
+	DailyLimit float64    `json:"dailyLimit"`
+}
+
+type DemoLogin struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type UserInfo struct {

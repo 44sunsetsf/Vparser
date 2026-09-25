@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"dovideo/server/internal/billing"
 	"dovideo/server/internal/common"
 	"dovideo/server/internal/obs"
 )
@@ -131,6 +132,8 @@ func (a *API) authRequired() gin.HandlerFunc {
 			return
 		}
 		c.Set(userIDKey, id)
+		// agent calls made for this request are charged to this user (see billing)
+		c.Request = c.Request.WithContext(billing.WithUser(c.Request.Context(), id))
 		c.Next()
 	}
 }

@@ -177,6 +177,12 @@ services:
       YTDLP_PATH: yt-dlp
       OCR_COMMAND: tesseract
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      # public demo server only (empty = open registration, unlimited spend)
+      REGISTRATION_INVITE_CODE: ${REGISTRATION_INVITE_CODE:-}
+      BILLING_DAILY_LIMIT_CNY: ${BILLING_DAILY_LIMIT_CNY:-0}
+      BILLING_UNLIMITED_USER_IDS: ${BILLING_UNLIMITED_USER_IDS:-}
+      DEMO_USERNAME: ${DEMO_USERNAME:-}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
     depends_on:
       mysql: {condition: service_healthy}
       redis: {condition: service_healthy}

@@ -18,10 +18,12 @@ var (
 	CodeValidationFailed   = ErrorCode{40001, http.StatusBadRequest}
 	CodeUnauthorized       = ErrorCode{40100, http.StatusUnauthorized}
 	CodeForbidden          = ErrorCode{40300, http.StatusForbidden}
+	CodeInviteRequired     = ErrorCode{40301, http.StatusForbidden} // registration needs an invite code
 	CodeNotFound           = ErrorCode{40400, http.StatusNotFound}
 	CodeConflict           = ErrorCode{40900, http.StatusConflict}
 	CodeUnprocessable      = ErrorCode{42200, http.StatusUnprocessableEntity}
 	CodeRateLimited        = ErrorCode{42900, http.StatusTooManyRequests}
+	CodeQuotaExhausted     = ErrorCode{42901, http.StatusTooManyRequests} // daily AI spend used up (see billing)
 	CodeInternalError      = ErrorCode{50000, http.StatusInternalServerError}
 	CodeServiceUnavailable = ErrorCode{50300, http.StatusServiceUnavailable}
 )

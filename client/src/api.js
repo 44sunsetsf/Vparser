@@ -46,6 +46,14 @@ function dataAsText(data) {
   return typeof data === 'string' ? data : JSON.stringify(data)
 }
 
+// Business codes whose Chinese server message has a translation here.
+const LOCALIZED_CODES = { 42901: 'quota.exhausted', 40301: 'auth.inviteRequired' }
+
+function localizedMessage(envelope) {
+  const key = LOCALIZED_CODES[envelope.code]
+  return key ? t(key) : (envelope.message || '')
+}
+
 function unwrap(response, envelope) {
   const payload = envelope.data ?? null
 
@@ -57,7 +65,7 @@ function unwrap(response, envelope) {
     redirected: response.redirected,
     url: response.url,
     json: async () => payload,
-    text: async () => (response.ok ? dataAsText(payload) : (envelope.message || '')),
+    text: async () => (response.ok ? dataAsText(payload) : localizedMessage(envelope)),
     raw: response
   }
 }

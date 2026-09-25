@@ -28,6 +28,8 @@ func mapAuthCode(code int) common.ErrorCode {
 		return common.CodeInvalidArgument
 	case 401:
 		return common.CodeUnauthorized
+	case 403:
+		return common.CodeInviteRequired
 	case 409:
 		return common.CodeConflict
 	case 429:
@@ -48,6 +50,15 @@ func authResult(c *gin.Context, resp model.AuthResponse) {
 		data.Token = &t
 	}
 	ok(c, data)
+}
+
+// authConfig is public: the login form uses it to show the invite notice and the demo account.
+func (a *API) authConfig(c *gin.Context) {
+	cfg := model.AuthConfig{InviteOnly: a.Auth.InviteCode != "", DailyLimit: a.DemoDailyLimit}
+	if a.DemoUsername != "" {
+		cfg.Demo = &model.DemoLogin{Username: a.DemoUsername, Password: a.DemoPassword}
+	}
+	ok(c, cfg)
 }
 
 func (a *API) register(c *gin.Context) {

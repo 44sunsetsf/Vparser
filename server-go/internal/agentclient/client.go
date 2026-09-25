@@ -8,6 +8,7 @@ package agentclient
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -18,6 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	agentv1 "dovideo/server/gen/agent/v1"
+	"dovideo/server/internal/billing"
 	"dovideo/server/internal/model"
 	"dovideo/server/internal/obs"
 )
@@ -111,6 +113,9 @@ func Interceptor(token string, timeouts Timeouts) grpc.UnaryClientInterceptor {
 		ctx, cancel := context.WithTimeout(ctx, timeouts.For(method))
 		defer cancel()
 		ctx = metadata.AppendToOutgoingContext(ctx, TokenHeader, token)
+		if uid, ok := billing.UserFrom(ctx); ok {
+			ctx = metadata.AppendToOutgoingContext(ctx, billing.Header, strconv.FormatInt(uid, 10))
+		}
 		var trailer metadata.MD
 		opts = append(opts, grpc.Trailer(&trailer))
 		started := time.Now()

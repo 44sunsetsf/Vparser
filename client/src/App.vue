@@ -443,6 +443,16 @@
             <button class="close-btn" @click="closeAuthModal" :aria-label="t('auth.close')">×</button>
           </div>
           <form class="auth-body" @submit.prevent="handleAuth">
+            <!-- 公开演示服务器：注册需内测码，演示账号每天有 AI 额度 -->
+            <div v-if="authConfig.inviteOnly || authConfig.demo" class="beta-note">
+              <p class="beta-title">{{ t('auth.beta.title') }}</p>
+              <p v-if="authConfig.demo" class="beta-demo">
+                {{ t('auth.beta.demo') }} <code>{{ authConfig.demo.username }}</code> / <code>{{ authConfig.demo.password }}</code>
+                <span v-if="authConfig.dailyLimit"> · {{ t('auth.beta.limit', { limit: authConfig.dailyLimit }) }}</span>
+                <button type="button" class="toggle-link" @click="fillDemo">{{ t('auth.beta.fill') }}</button>
+              </p>
+              <p v-if="authConfig.inviteOnly" class="beta-invite">{{ t('auth.beta.invite') }}</p>
+            </div>
             <div class="input-group">
               <label for="auth-username">{{ t('auth.username') }}</label>
               <input id="auth-username" v-model="authForm.username" type="text" :placeholder="t('auth.username.placeholder')" autocomplete="username" autofocus />
@@ -450,6 +460,10 @@
             <div class="input-group">
               <label for="auth-password">{{ t('auth.password') }}</label>
               <input id="auth-password" v-model="authForm.password" type="password" :placeholder="t('auth.password.placeholder')" :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'" />
+            </div>
+            <div class="input-group" v-if="authMode === 'register' && authConfig.inviteOnly">
+              <label for="auth-invite">{{ t('auth.invite') }}</label>
+              <input id="auth-invite" v-model="authForm.inviteCode" type="text" :placeholder="t('auth.invite.placeholder')" autocomplete="off" />
             </div>
             <div class="input-group" v-if="authMode === 'register'">
               <label for="auth-nickname">{{ t('auth.nickname') }}</label>
@@ -531,7 +545,18 @@ const authMode = ref('login')
 const authLoading = ref(false)
 const authMessage = ref('')
 const authError = ref(false)
-const authForm = ref({ username: '', password: '', nickname: '' })
+const authForm = ref({ username: '', password: '', nickname: '', inviteCode: '' })
+const authConfig = ref({ inviteOnly: false, demo: null, dailyLimit: 0 })
+const loadAuthConfig = async () => {
+  try {
+    const res = await apiRequest('/user/auth-config')
+    if (res.ok) authConfig.value = { ...authConfig.value, ...(await res.json()) }
+  } catch { /* older server or offline: the plain form still works */ }
+}
+const fillDemo = () => {
+  if (authMode.value !== 'login') switchAuthMode()
+  authForm.value = { ...authForm.value, username: authConfig.value.demo.username, password: authConfig.value.demo.password }
+}
 const taskStreams = createTaskStreams({
   onActiveChange: tasks => { activeTasks.value = tasks }
 })
@@ -1135,7 +1160,8 @@ const openAuthModal = () => {
   focusBeforeAuth = document.activeElement
   showAuthModal.value = true
   authMessage.value = ''
-  authForm.value = { username: '', password: '', nickname: '' }
+  authForm.value = { username: '', password: '', nickname: '', inviteCode: '' }
+  loadAuthConfig()
 }
 const closeAuthModal = () => {
   showAuthModal.value = false
@@ -1659,6 +1685,12 @@ code { font-family: var(--font-latin); background: var(--birch); padding: 1px 6p
 .toggle-link { color: var(--fjord); font-weight: 500; }
 .toggle-link:hover { text-decoration: underline; }
 .auth-msg { text-align: center; font-size: 0.88rem; color: #4c5f45; }
+.beta-note { padding: 12px 14px; border-radius: 10px; background: rgba(191, 138, 48, 0.1); border: 1px solid rgba(191, 138, 48, 0.3); font-size: 0.86rem; line-height: 1.6; }
+.beta-note p { margin: 0; }
+.beta-note p + p { margin-top: 6px; }
+.beta-title { font-weight: 600; }
+.beta-note code { padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, 0.06); font-size: 0.84rem; }
+.beta-note .toggle-link { margin-left: 6px; }
 .auth-msg.error { color: var(--falu); }
 
 /* ---------- Responsive ---------- */

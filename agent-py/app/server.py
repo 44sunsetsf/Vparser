@@ -19,6 +19,7 @@ from .config import Settings, get_settings
 from .container import Container, build_container
 from .gen.agent.v1 import agent_pb2, agent_pb2_grpc
 from .observability import grpc_server_interceptor, setup_tracing, shutdown_tracing, start_metrics_server
+from .billing import BillingInterceptor
 from .rpc.auth import TokenAuthInterceptor
 from .rpc.servicer import AgentServicer
 
@@ -30,7 +31,8 @@ READINESS_RETRY_SECONDS = 2.0
 
 def build_server(container: Container, settings: Settings, *, port: int | None = None,
                  tracing: bool = False) -> tuple[grpc.Server, health.HealthServicer, int]:
-    interceptors = ([grpc_server_interceptor()] if tracing else []) + [TokenAuthInterceptor(settings.internal_token)]
+    interceptors = (([grpc_server_interceptor()] if tracing else [])
+                    + [TokenAuthInterceptor(settings.internal_token), BillingInterceptor()])
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=settings.agent_grpc_max_workers, thread_name_prefix="rpc"),
         interceptors=interceptors,

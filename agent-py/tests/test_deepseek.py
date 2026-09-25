@@ -183,3 +183,19 @@ def test_enable_thinking_is_only_sent_when_configured(monkeypatch, thinking, exp
     client = ds.DeepSeekClient(settings, AgentTelemetry(fakeredis.FakeRedis(decode_responses=True)))
     client.plan(CTX)
     assert _RecordingOpenAI.calls and _RecordingOpenAI.calls[0]["extra_body"] == expected
+
+
+def test_model_calls_are_charged_to_the_billing_user():
+    from app.billing import CURRENT_USER, SpendLedger
+    redis = fakeredis.FakeRedis(decode_responses=True)
+    settings = SimpleNamespace(**{**vars(SETTINGS), "llm_input_price_per_million": 1.8,
+                                  "llm_output_price_per_million": 10.8})
+    client = ds.DeepSeekClient(settings, AgentTelemetry(redis), chat_fn=lambda s, u: PLAN_JSON,
+                               ledger=SpendLedger(redis))
+    token = CURRENT_USER.set(2)
+    try:
+        client.plan(CTX)
+    finally:
+        CURRENT_USER.reset(token)
+    [key] = redis.keys("billing:spend:2:*")
+    assert 0 < float(redis.get(key)) < 0.01      # one short call costs a fraction of a fen

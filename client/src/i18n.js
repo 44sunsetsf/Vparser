@@ -245,6 +245,15 @@ const ROWS = {
   'auth.hasAccount': ['已有账号?', 'Have an account?', 'Har du ett konto?'],
   'auth.toRegister': ['去注册', 'Sign up', 'Registrera dig'],
   'auth.toLogin': ['去登录', 'Log in', 'Logga in'],
+  'auth.beta.title': ['项目内测中', 'Private beta', 'Privat beta'],
+  'auth.beta.demo': ['公开演示账号', 'Public demo account', 'Öppet demokonto'],
+  'auth.beta.limit': ['每天 AI 额度 ¥{limit}', 'AI allowance ¥{limit} a day', 'AI-kvot ¥{limit} per dag'],
+  'auth.beta.fill': ['一键填入', 'Fill in', 'Fyll i'],
+  'auth.beta.invite': ['注册需要内测码，请联系作者索要：yunfanteo@outlook.com · 微信 rushac2', 'Signing up needs an invite code. Ask the author: yunfanteo@outlook.com', 'Registrering kräver en inbjudningskod. Fråga författaren: yunfanteo@outlook.com'],
+  'auth.invite': ['内测码', 'Invite code', 'Inbjudningskod'],
+  'auth.invite.placeholder': ['向作者索要的内测码', 'The code the author gave you', 'Koden du fått av författaren'],
+  'auth.inviteRequired': ['项目内测中，请联系作者索要内测码', 'This project is in private beta. Ask the author for an invite code.', 'Projektet är i privat beta. Be författaren om en inbjudningskod.'],
+  'quota.exhausted': ['这个账号今天的 AI 额度已用完，明天再来，或联系作者获取内测账号', 'This account has used up today\'s AI allowance. Come back tomorrow, or ask the author for a beta account.', 'Kontot har använt upp dagens AI-kvot. Kom tillbaka i morgon, eller be författaren om ett betakonto.'],
 
   // analysis workspace
   'goal.default': ['理解视频核心内容，提炼关键结论，并给出带时间戳的证据和可执行建议',

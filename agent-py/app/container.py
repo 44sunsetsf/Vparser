@@ -16,6 +16,7 @@ from .agent.followup import FollowUpService
 from .agent.loop import AgentLoopService
 from .agent.modes import ModeRegistry, ModeRouter
 from .agent.service import AgentService
+from .billing import SpendLedger
 from .checkpoint.repository import AgentCheckpointRepository
 from .checkpoint.service import AgentCheckpointService
 from .config import Settings, get_settings
@@ -89,7 +90,7 @@ def build_container(settings: Settings | None = None) -> Container:
     telemetry = AgentTelemetry(redis_client)
     repository = AgentCheckpointRepository(redis_client, engine)
     checkpoint = AgentCheckpointService(redis_client, repository)
-    deepseek = DeepSeekClient(s, telemetry)
+    deepseek = DeepSeekClient(s, telemetry, ledger=SpendLedger(redis_client))
     embedding = EmbeddingClient(s)
     vector_store = QdrantVectorStore(s)
     retrieval = VideoEvidenceRetrievalService(deepseek, embedding, vector_store, telemetry)

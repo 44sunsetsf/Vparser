@@ -48,6 +48,11 @@ type API struct {
 	AIPool        *workerpool.Pool
 	Users         *repo.Users
 
+	// public demo account shown on the login form, and its daily AI allowance (CNY, 0 = none)
+	DemoUsername   string
+	DemoPassword   string
+	DemoDailyLimit float64
+
 	CORSOrigins        []string
 	InteractiveTimeout time.Duration
 	ShutdownCh         <-chan struct{}
@@ -75,6 +80,7 @@ func (a *API) Router() *gin.Engine {
 	r.GET("/metrics", gin.WrapH(obs.Handler()))
 
 	user := r.Group("/user")
+	user.GET("/auth-config", a.authConfig)
 	user.POST("/register", a.register)
 	user.POST("/login", a.login)
 	user.POST("/logout", a.authRequired(), a.logout)

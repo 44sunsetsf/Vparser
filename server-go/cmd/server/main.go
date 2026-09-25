@@ -25,6 +25,7 @@ import (
 	"dovideo/server/internal/agentclient"
 	"dovideo/server/internal/analysis"
 	"dovideo/server/internal/auth"
+	"dovideo/server/internal/billing"
 	"dovideo/server/internal/checkpoint"
 	"dovideo/server/internal/config"
 	"dovideo/server/internal/httpapi"
@@ -125,6 +126,7 @@ func run() error {
 	dl := ytdlp.New(cfg.YtDlpPath, cfg.FfmpegDir)
 	mediaSvc := media.NewService(mediaRepo, rdb, locker, store, cp, agent, vctx, dl)
 	authSvc := auth.New(rdb, users)
+	authSvc.InviteCode = cfg.InviteCode
 	uploadSvc := upload.New(rdb, locker, store, mediaSvc)
 	instant := upload.NewInstant(rdb, locker, store, mediaSvc)
 
@@ -142,7 +144,13 @@ func run() error {
 	}
 	defer producer.Close()
 
-	dispatcher := &analysis.Dispatcher{Media: mediaSvc, Rdb: rdb, Sender: producer, Limiter: limiter, Hub: hub, Agent: agent}
+	unlimited := map[int64]bool{}
+	for _, id := range cfg.BillingUnlimited {
+		unlimited[id] = true
+	}
+	ledger := &billing.Ledger{Rdb: rdb, Limit: cfg.BillingDailyLimit, Unlimited: unlimited}
+	dispatcher := &analysis.Dispatcher{Media: mediaSvc, Rdb: rdb, Sender: producer, Limiter: limiter, Hub: hub, Agent: agent,
+		Billing: ledger}
 	status := &analysis.StatusService{CP: cp, Agent: agent, Dispatcher: dispatcher}
 	failed := &analysis.FailedTasks{Repo: repo.NewFailedTasks(db), Sender: producer, Rdb: rdb, Hub: hub}
 	transcriptions := &analysis.Transcriptions{MediaRepo: mediaRepo, Media: mediaSvc, Transcriber: transcriber,
@@ -168,6 +176,7 @@ func run() error {
 		Auth: authSvc, Media: mediaSvc, Upload: uploadSvc, Instant: instant, Dispatcher: dispatcher, Status: status,
 		FailedTasks: failed, Transcription: transcriptions, Hub: hub, CP: cp, Agent: agent,
 		Limiter: limiter, Rdb: rdb, AIPool: aiPool, Users: users,
+		DemoUsername: cfg.DemoUsername, DemoPassword: cfg.DemoPassword, DemoDailyLimit: cfg.BillingDailyLimit,
 		CORSOrigins: cfg.CORSOrigins, InteractiveTimeout: cfg.InteractiveTimeout, ShutdownCh: shutdownCh,
 	}
 	srv := &http.Server{

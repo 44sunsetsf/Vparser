@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from pydantic_core import to_json
 
 from ..agent.budget import remaining_millis
+from ..billing import SpendLedger
 from ..errors import (
     DeadlineExceededError,
     InvalidArgumentError,
@@ -93,7 +94,8 @@ def is_retriable_model_failure(error: BaseException) -> bool:
 class DeepSeekClient:
     def __init__(self, settings, telemetry: AgentTelemetry,
                  executor: ModelCallExecutor | None = None,
-                 chat_fn: Callable[[str, str], str | None] | None = None) -> None:
+                 chat_fn: Callable[[str, str], str | None] | None = None,
+                 ledger: SpendLedger | None = None) -> None:
         timeout_seconds = settings.llm_timeout_seconds
         in_price, out_price = settings.llm_input_price_per_million, settings.llm_output_price_per_million
         if timeout_seconds < 1:
@@ -103,6 +105,7 @@ class DeepSeekClient:
         if settings.agent_max_estimated_cost > 0 and (in_price == 0 or out_price == 0):
             raise InvalidArgumentError("启用 Agent 成本预算时必须配置输入和输出 Token 单价")
         self._telemetry = telemetry
+        self._ledger = ledger
         self._executor = executor or ModelCallExecutor()
         self._model_timeout_ms = timeout_seconds * 1000
         self._in_price = in_price
@@ -242,6 +245,8 @@ class DeepSeekClient:
                     LLM_TOKENS.labels(stage, "output").inc(output_tokens)
                     self._telemetry.model_call(stage, P.SYSTEM_POLICY + "\n" + prompt, response,
                                                self._in_price, self._out_price, started)
+                    if self._ledger is not None:
+                        self._ledger.add((input_tokens * self._in_price + output_tokens * self._out_price) / 1_000_000)
                     return response
                 except DeadlineExceededError:
                     # Out of budget: no retry, and not a model fault — let the caller classify it.

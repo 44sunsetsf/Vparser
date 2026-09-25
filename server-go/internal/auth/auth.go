@@ -47,6 +47,8 @@ var usernameRe = regexp.MustCompile(`^[A-Za-z0-9_]{3,32}$`)
 type Service struct {
 	rdb   redis.Cmdable
 	users *repo.Users
+	// InviteCode, when set, closes open registration: only people given the code can sign up.
+	InviteCode string
 }
 
 func New(rdb redis.Cmdable, users *repo.Users) *Service { return &Service{rdb: rdb, users: users} }
@@ -68,6 +70,9 @@ func deref(s *string) string {
 	return *s
 }
 
+// InviteRequiredMsg is what registration answers without a valid invite code.
+const InviteRequiredMsg = "项目内测中，请联系作者索要内测码"
+
 func normalizeUsername(username *string) (string, bool) {
 	if username == nil {
 		return "", false
@@ -88,6 +93,10 @@ func normalizeNickname(nickname *string) (string, bool) {
 // Register creates an account. Validation failures are reported in the response; infrastructure
 // failures return an error.
 func (s *Service) Register(ctx context.Context, req model.AuthRequest) (model.AuthResponse, error) {
+	if s.InviteCode != "" && (req.InviteCode == nil ||
+		subtle.ConstantTimeCompare([]byte(strings.TrimSpace(*req.InviteCode)), []byte(s.InviteCode)) != 1) {
+		return response(403, InviteRequiredMsg, nil, ""), nil
+	}
 	username, ok := normalizeUsername(req.Username)
 	password := deref(req.Password)
 	if !ok || req.Password == nil || utf16Len(password) < 8 || utf16Len(password) > maxPasswordLength {

@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"dovideo/server/internal/agentclient"
+	"dovideo/server/internal/billing"
 	"dovideo/server/internal/checkpoint"
 	"dovideo/server/internal/common"
 	"dovideo/server/internal/media"
@@ -106,7 +107,8 @@ func (a *Analyzer) AsyncAnalyze(ctx context.Context, mediaID int64, userGoal str
 		model.StatusOf(model.StateProcessing, "多模态上下文已就绪，Agent 开始分析"), model.StageAgentLoop); perr != nil {
 		return perr
 	}
-	run, err := a.Agent.Run(ctx, agentclient.RunRequest{
+	// the model spend of this run counts against the owner of the video
+	run, err := a.Agent.Run(billing.WithUser(ctx, mf.UserID), agentclient.RunRequest{
 		MediaID: mediaID, Goal: userGoal, Mode: mode, TelemetrySeed: seed.Snapshot(),
 	})
 	if err != nil {

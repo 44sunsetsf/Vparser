@@ -11,6 +11,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"dovideo/server/internal/agentclient"
+	"dovideo/server/internal/billing"
 	"dovideo/server/internal/common"
 	"dovideo/server/internal/media"
 	"dovideo/server/internal/model"
@@ -45,11 +46,15 @@ type Dispatcher struct {
 	Limiter *ratelimit.Limiter
 	Hub     *taskevents.Hub
 	Agent   *agentclient.Client
+	Billing *billing.Ledger // nil or a zero limit: no daily spend cap
 }
 
 // Submit enqueues an analysis (or revision) task with idempotency + quota checks.
 func (d *Dispatcher) Submit(ctx context.Context, mf *model.MediaFile, goal string, revision *model.AgentFeedback, mode model.AnalysisMode) (res SubmissionResult, err error) {
 	defer func() { obs.AnalysisSubmit.WithLabelValues(submitLabel(res, err)).Inc() }()
+	if err := d.Billing.Check(ctx, mf.UserID); err != nil {
+		return Failed, err
+	}
 	mode = mode.Resolve()
 	mediaID := mf.ID
 	action := model.ActionStart
@@ -126,6 +131,9 @@ func (d *Dispatcher) IsActive(ctx context.Context, mediaID int64, goal string, m
 
 // RequireAiQuota consumes one AI permit or returns 429/503 business errors.
 func (d *Dispatcher) RequireAiQuota(ctx context.Context, userID int64) error {
+	if err := d.Billing.Check(ctx, userID); err != nil {
+		return err
+	}
 	ok, err := d.tryAcquireQuota(ctx, userID)
 	if err != nil {
 		slog.Warn("ai_rate_limiter_unavailable", "userId", userID, "err", err)

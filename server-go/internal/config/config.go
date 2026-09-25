@@ -56,6 +56,13 @@ type Config struct {
 
 	OTLPEndpoint string // empty disables trace export
 	ServiceName  string
+
+	// Public demo server only; the defaults leave registration open and spending unlimited.
+	BillingDailyLimit float64 // BILLING_DAILY_LIMIT_CNY: model spend per user per day, 0 = no limit
+	BillingUnlimited  []int64 // BILLING_UNLIMITED_USER_IDS: users exempt from the limit (the owner)
+	InviteCode        string  // REGISTRATION_INVITE_CODE: when set, registering requires it
+	DemoUsername      string  // DEMO_USERNAME / DEMO_PASSWORD: public demo account shown on the login form
+	DemoPassword      string
 }
 
 func get(env, def string) string {
@@ -114,6 +121,23 @@ func Load() (*Config, error) {
 		AgentGRPCAddr:       get("AGENT_GRPC_ADDR", "127.0.0.1:9091"),
 		OTLPEndpoint:        get("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
 		ServiceName:         get("OTEL_SERVICE_NAME", "server-go"),
+		InviteCode:          get("REGISTRATION_INVITE_CODE", ""),
+		DemoUsername:        get("DEMO_USERNAME", ""),
+		DemoPassword:        get("DEMO_PASSWORD", ""),
+	}
+	if v := get("BILLING_DAILY_LIMIT_CNY", ""); v != "" {
+		limit, err := strconv.ParseFloat(v, 64)
+		if err != nil || limit < 0 {
+			return nil, fmt.Errorf("BILLING_DAILY_LIMIT_CNY must be a non-negative number, got %q", v)
+		}
+		c.BillingDailyLimit = limit
+	}
+	for _, s := range SplitList(get("BILLING_UNLIMITED_USER_IDS", "")) {
+		id, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("BILLING_UNLIMITED_USER_IDS: %q is not a user id", s)
+		}
+		c.BillingUnlimited = append(c.BillingUnlimited, id)
 	}
 	var err error
 	for _, s := range []struct {

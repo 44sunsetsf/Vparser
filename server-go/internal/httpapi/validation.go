@@ -41,6 +41,8 @@ type registerForm struct {
 	Username *string `json:"username" validate:"notblank,min=3,max=32"`
 	Password *string `json:"password" validate:"notblank,max=128,min=8"`
 	Nickname *string `json:"nickname" validate:"omitempty,max=50"`
+	// checked by auth.Service, which knows whether the server wants one
+	InviteCode *string `json:"inviteCode" validate:"omitempty,max=64"`
 }
 
 type loginForm struct {

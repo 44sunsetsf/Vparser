@@ -55,6 +55,11 @@ func (a *API) route(c *gin.Context) {
 		fail(c, err)
 		return
 	}
+	if a.Dispatcher.Billing.Check(c.Request.Context(), userID(c)) != nil {
+		// out of today's allowance: skip the model call, the analysis itself will explain why
+		ok(c, model.NewRouteDecision(model.ModeGeneral, "今日额度已用完,已按通用模式分析"))
+		return
+	}
 	if !a.tryRouteQuota(c, userID(c)) {
 		ok(c, model.NewRouteDecision(model.ModeGeneral, "自动路由当前繁忙,已按通用模式分析"))
 		return

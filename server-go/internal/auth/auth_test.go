@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"dovideo/server/internal/model"
 	"strings"
 	"testing"
 
@@ -111,3 +112,20 @@ func TestSessionLifecycleAndThrottle(t *testing.T) {
 		t.Fatalf("failure counter needs a TTL, got %v", ttl)
 	}
 }
+
+func TestRegisterNeedsInviteCodeWhenConfigured(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	defer rdb.Close()
+	s := New(rdb, nil)
+	s.InviteCode = "letmein"
+	name, pw := "alice", "password123"
+	for _, code := range []*string{nil, ptr(""), ptr("wrong")} {
+		resp, err := s.Register(context.Background(), model.AuthRequest{Username: &name, Password: &pw, InviteCode: code})
+		if err != nil || resp.Code != 403 || resp.Msg != InviteRequiredMsg {
+			t.Fatalf("code %v: got %+v %v", code, resp, err)
+		}
+	}
+}
+
+func ptr(s string) *string { return &s }
