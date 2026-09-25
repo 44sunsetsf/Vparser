@@ -1,3 +1,5 @@
+import { t } from './i18n.js'
+
 const API_BASE = (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const TOKEN_KEY = 'authToken'
 
@@ -6,7 +8,7 @@ export function hasAuthToken() {
 }
 
 export function setAuthToken(token) {
-  if (!token) throw new Error('登录接口未返回有效令牌')
+  if (!token) throw new Error(t('api.noToken'))
   localStorage.setItem(TOKEN_KEY, token)
 }
 
@@ -70,7 +72,7 @@ export async function apiRequest(path, options = {}) {
     response = await fetch(`${API_BASE}${path}`, { ...options, headers })
   } catch (error) {
     if (error?.name === 'AbortError') throw error
-    throw new Error('无法连接后端服务，请确认后端已启动且地址配置正确', { cause: error })
+    throw new Error(t('api.unreachable'), { cause: error })
   }
   if (response.status === 401 && !path.startsWith('/user/')) {
     clearAuthToken()

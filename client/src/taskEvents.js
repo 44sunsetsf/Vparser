@@ -1,5 +1,6 @@
 import { apiRequest } from './api.js'
 import { isTerminalStatus } from './taskEventsPolicy.js'
+import { t } from './i18n.js'
 
 /**
  * 后台任务的 SSE 连接池。
@@ -62,7 +63,7 @@ export function createTaskStreams({ onActiveChange = () => {} } = {}) {
           })
           if (!response.ok) {
             const error = new Error(
-              (await response.text()) || `事件流连接失败（HTTP ${response.status}）`)
+              (await response.text()) || t('stream.failed', { status: response.status }))
             error.status = response.status
             // 目标不存在、无权访问、参数非法这类错误不会自愈，继续重连只是空转，
             // 还会让界面永远停在“重连中”。直接释放连接并告知调用方这是终态。
@@ -73,7 +74,7 @@ export function createTaskStreams({ onActiveChange = () => {} } = {}) {
             }
             throw error
           }
-          if (!response.body) throw new Error('服务端未返回事件流')
+          if (!response.body) throw new Error(t('stream.noBody'))
           const terminal = await consumeStream(response.body, async event => {
             reconnectAttempt = 0
             await onEvent(event)

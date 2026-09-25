@@ -2,43 +2,19 @@ import { computed, ref } from 'vue'
 import { apiRequest } from './api'
 import { DEMO_EVALUATION, DEMO_ITEM, DEMO_PLAN, DEMO_RESULT, DEMO_TRACE } from './demoData'
 import { renderMarkdown } from './markdown'
-
-const DEFAULT_GOAL = '理解视频核心内容，提炼关键结论，并给出带时间戳的证据和可执行建议'
+import { t } from './i18n'
 
 // 分析模式选项。GENERAL/LEARNING/REVIEW/CREATION 与后端 AnalysisMode 枚举一一对应,value 直接作为 mode 参数;
 // AUTO 是纯前端选项:提交前先调 /analysis/route 让 AI 判定出具体模式,再据此发起分析——
 // AUTO 本身绝不会作为 mode 发到任何带 key 的后端接口,从根上避免读写端 key 不对称。
-const ANALYSIS_MODES = [
-  { value: 'AUTO', title: '自动', description: 'AI 按目标智能选择模式' },
-  { value: 'GENERAL', title: '通用', description: '结论 · 时间戳证据 · 建议' },
-  { value: 'LEARNING', title: '学习', description: '知识点大纲 · 重点难点 · 自测题' },
-  { value: 'REVIEW', title: '审查', description: '逻辑漏洞 · 夸大表述 · 遗漏点' },
-  { value: 'CREATION', title: '创作', description: '爆点片段 · 标题 · 口播脚本' }
-]
-const GOAL_PRESETS = [
-  {
-    title: '学习笔记',
-    description: '章节、知识点与复习建议',
-    prompt: '生成结构化学习笔记，按章节提炼知识点，引用关键时间戳，并给出复习建议'
-  },
-  {
-    title: '会议纪要',
-    description: '结论、分歧与待办事项',
-    prompt: '生成会议纪要，整理核心议题、明确结论、分歧点和待办事项，并引用对应时间戳'
-  },
-  {
-    title: '操作手册',
-    description: '步骤、条件与异常处理',
-    prompt: '生成可执行操作手册，提取前置条件、操作步骤、注意事项和异常处理，并引用对应时间戳'
-  }
-]
-const STAGE_LABELS = {
-  VIDEO_CONTEXT: '解析语音与画面',
-  RETRIEVAL: '检索相关证据',
-  PLANNER: '拆解分析任务',
-  EXECUTOR: '生成结构化结果',
-  CRITIC: '核验结论与证据'
-}
+// 标题与说明随界面语言切换，所以做成函数，在渲染时取当前语言的文案。
+const MODE_VALUES = ['AUTO', 'GENERAL', 'LEARNING', 'REVIEW', 'CREATION']
+const analysisModeOptions = () => MODE_VALUES.map(value => ({
+  value, title: t(`mode.${value}`), description: t(`mode.${value}.desc`)
+}))
+const goalPresetOptions = () => ['notes', 'minutes', 'manual'].map(key => ({
+  title: t(`preset.${key}`), description: t(`preset.${key}.desc`), prompt: t(`preset.${key}.prompt`)
+}))
 
 function createSidebarState() {
   return {
@@ -53,7 +29,7 @@ function createSidebarState() {
     streamOffline: false,
     streamRetry: 0,
     mediaId: null,
-    goal: DEFAULT_GOAL,
+    goal: t('goal.default'),
     analysisMode: 'GENERAL',
     playbackUrl: '',
     playbackLoading: false,
@@ -86,7 +62,7 @@ export function useAnalysisWorkspace({
   const sidebar = ref(createSidebarState())
   let evidenceRequestVersion = 0
   const traceStages = computed(() => Object.entries(sidebar.value.trace?.stageDurationMs || {})
-    .map(([stage, duration]) => [STAGE_LABELS[stage] || stage, formatDuration(duration)]))
+    .map(([stage, duration]) => [t(`stage.${stage}`) === `stage.${stage}` ? stage : t(`stage.${stage}`), formatDuration(duration)]))
   const renderedMarkdown = computed(() => renderMarkdown(sidebar.value.content))
   const isCurrentWorkspace = (id, type, goal = null, analysisMode = null) => sidebar.value.mediaId === id
     && sidebar.value.type === type
@@ -122,7 +98,7 @@ export function useAnalysisWorkspace({
     try {
       const response = await apiRequest(`/media/playback?id=${id}`)
       const url = await response.text()
-      if (!response.ok) throw new Error(url || '视频加载失败')
+      if (!response.ok) throw new Error(url || t('ws.videoFailed'))
       if (sidebar.value.mediaId === id) {
         sidebar.value.playbackUrl = url
         sidebar.value.playbackError = ''
@@ -131,7 +107,7 @@ export function useAnalysisWorkspace({
       console.warn('Video preview unavailable', error)
       if (sidebar.value.mediaId === id) {
         sidebar.value.playbackUrl = ''
-        sidebar.value.playbackError = error.message || '原视频暂时无法加载'
+        sidebar.value.playbackError = error.message || t('ws.videoUnavailable')
       }
     } finally {
       if (sidebar.value.mediaId === id) sidebar.value.playbackLoading = false
@@ -164,7 +140,7 @@ export function useAnalysisWorkspace({
     const scope = type === 'ai' ? analysisScope(goal, resolvedMode) : ''
     const isCurrentTask = () => isCurrentWorkspace(
       id, type, type === 'ai' ? goal : null, type === 'ai' ? resolvedMode : null)
-    const taskLabel = type === 'ai' ? 'AI 分析' : '文字提取'
+    const taskLabel = type === 'ai' ? t('ws.task.ai') : t('ws.task.asr')
     const finish = async (result, failed = false) => {
       const watching = sidebar.value.visible && isCurrentTask()
       if (watching) {
@@ -182,8 +158,8 @@ export function useAnalysisWorkspace({
       const suffix = filename ? ` · ${filename}` : ''
       showMessage(
         failed
-          ? `${taskLabel}失败${suffix}：${result || '请稍后重试'}`
-          : `${taskLabel}完成${suffix}`,
+          ? t('ws.taskFailed', { task: taskLabel, suffix, error: result || t('msg.retryLater') })
+          : t('ws.taskDone', { task: taskLabel, suffix }),
         failed
       )
       taskStreams.stop(id, type, scope)
@@ -212,9 +188,9 @@ export function useAnalysisWorkspace({
       }
       if (status.state === 'COMPLETED') {
         await refreshMediaList()
-        await finish(status.result || (type === 'ai' ? '分析完成' : ''))
+        await finish(status.result || (type === 'ai' ? t('ws.analysisDone') : ''))
       } else if (status.state === 'FAILED') {
-        await finish(status.message || '任务执行失败', true)
+        await finish(status.message || t('ws.taskError'), true)
       }
     }, (error, attempt, terminal = false) => {
       // isCurrentTask 保证用户已切换视频或关闭面板时，旧任务的错误不会写到新页面上。
@@ -224,7 +200,7 @@ export function useAnalysisWorkspace({
         sidebar.value.streamOffline = false
         sidebar.value.streamRetry = 0
         sidebar.value.loading = false
-        sidebar.value.error = error?.message || '任务事件流已断开，请稍后重试'
+        sidebar.value.error = error?.message || t('ws.streamLost')
         return
       }
       console.warn('task event stream reconnecting', error)
@@ -237,22 +213,22 @@ export function useAnalysisWorkspace({
   const transcribe = async id => {
     const item = findMediaItem(id)
     if (demoMode) {
-      openSidebar('text', 'ASR 转写结果')
+      openSidebar('text', t('ws.asrTitle'))
       sidebar.value.content = item?.transcriptText || DEMO_ITEM.transcriptText
       sidebar.value.loading = false
       return
     }
-    const panelTitle = item?.filename ? `全量文字提取 · ${item.filename}` : '全量文字提取'
+    const panelTitle = item?.filename ? `${t('ws.asrPanel')} · ${item.filename}` : t('ws.asrPanel')
     if (taskStreams.has(id, 'text')) {
       openSidebar('text', panelTitle)
       sidebar.value.mediaId = id
-      sidebar.value.statusMessage = '文字提取正在后台继续，进度会自动同步'
+      sidebar.value.statusMessage = t('ws.asrContinuing')
       return
     }
 
     openSidebar('text', panelTitle)
     sidebar.value.mediaId = id
-    sidebar.value.statusMessage = '提取任务已提交，正在识别语音'
+    sidebar.value.statusMessage = t('ws.asrSubmitted')
     try {
       const current = await apiRequest(`/analysis/transcription-status?id=${id}`)
       if (!current.ok) throw new Error(await current.text())
@@ -279,7 +255,7 @@ export function useAnalysisWorkspace({
       if (isCurrentWorkspace(id, 'text')) {
         sidebar.value.content = ''
         sidebar.value.statusMessage = ''
-        sidebar.value.error = error.message || '文字提取失败，请稍后重试'
+        sidebar.value.error = error.message || t('ws.asrFailed')
         sidebar.value.loading = false
       }
     }
@@ -291,14 +267,14 @@ export function useAnalysisWorkspace({
     if (taskStreams.has(id, 'ai', scope)) {
       sidebar.value.mode = 'result'
       sidebar.value.loading = true
-      sidebar.value.statusMessage = '这个目标已有分析在进行，正在接管进度'
+      sidebar.value.statusMessage = t('ws.takeover')
       return
     }
 
     sidebar.value.loading = true
     sidebar.value.mode = 'result'
     sidebar.value.content = ''
-    sidebar.value.statusMessage = '任务已提交，正在排队进入 Agent 流水线'
+    sidebar.value.statusMessage = t('ws.queued')
     sidebar.value.streamOffline = false
     sidebar.value.streamRetry = 0
     try {
@@ -353,7 +329,7 @@ export function useAnalysisWorkspace({
       const response = await apiRequest(`/analysis/analysis-status?${params}`)
       if (!response.ok) {
         const detail = await response.text()
-        throw new Error(detail || '历史分析状态加载失败')
+        throw new Error(detail || t('ws.historyFailed'))
       }
       const status = await response.json()
       if (sidebar.value.mediaId !== item.id
@@ -368,18 +344,18 @@ export function useAnalysisWorkspace({
       } else if (status.state === 'QUEUED' || status.state === 'PROCESSING') {
         sidebar.value.mode = 'result'
         sidebar.value.loading = true
-        sidebar.value.statusMessage = status.message || '正在恢复上一次未完成的分析任务'
+        sidebar.value.statusMessage = status.message || t('ws.restoring')
         startTaskStream(item.id, 'ai', goal, analysisMode)
         await refreshAgentMeta(item.id, goal, false, analysisMode)
       } else if (status.state === 'FAILED') {
-        sidebar.value.error = status.message || '上次分析未完成，可以重新提交'
+        sidebar.value.error = status.message || t('ws.lastUnfinished')
       }
     } catch (error) {
       console.warn('Previous analysis unavailable', error)
       if (sidebar.value.mediaId === item.id
         && sidebar.value.goal === goal
         && sidebar.value.analysisMode === analysisMode) {
-        sidebar.value.error = error.message || '历史分析状态加载失败，可以重新提交'
+        sidebar.value.error = error.message || t('ws.historyRetry')
       }
     }
   }
@@ -428,7 +404,7 @@ export function useAnalysisWorkspace({
       sidebar.value.mode = 'result'
       sidebar.value.loading = true
       sidebar.value.content = ''
-      sidebar.value.statusMessage = '正在识别分析意图…'
+      sidebar.value.statusMessage = t('ws.routing')
       let decision = null
       try {
         decision = await routeMode(goal)
@@ -439,10 +415,10 @@ export function useAnalysisWorkspace({
       if (sidebar.value.mediaId !== mediaId || sidebar.value.goal.trim() !== goal) return
       if (decision && decision.mode) {
         mode = decision.mode
-        showMessage(`AI 已识别为「${modeTitle(mode)}」模式：${decision.reason || ''}`.trim())
+        showMessage(t('ws.routed', { mode: modeTitle(mode), reason: decision.reason || '' }).trim())
       } else {
         mode = 'GENERAL'
-        showMessage('意图识别暂不可用，已按通用模式分析', true)
+        showMessage(t('ws.routeUnavailable'), true)
       }
       sidebar.value.analysisMode = mode
     }
@@ -478,7 +454,7 @@ export function useAnalysisWorkspace({
   const rerunWithPlan = async () => {
     const tasks = sidebar.value.planDraft.map(task => task.trim()).filter(Boolean)
     if (!tasks.length || tasks.length > 5) {
-      showMessage('计划需保留 1 至 5 个有效任务', true)
+      showMessage(t('ws.planSize'), true)
       return
     }
     if (demoMode) {
@@ -502,24 +478,24 @@ export function useAnalysisWorkspace({
           mediaId,
           goal,
           correctedTasks: tasks,
-          comment: '用户调整 Planner 任务后重新执行'
+          comment: t('ws.planComment')
         })
       })
       const message = await response.text()
-      if (!response.ok) throw new Error(message || '重新提交失败')
+      if (!response.ok) throw new Error(message || t('ws.resubmitFailed'))
       if (isCurrentWorkspace(mediaId, 'ai', goal, analysisMode)) {
         sidebar.value.plan = { ...sidebar.value.plan, tasks }
         cancelPlanEdit()
         sidebar.value.content = ''
         sidebar.value.loading = true
-        sidebar.value.statusMessage = '已按新计划重新提交，正在重新执行'
+        sidebar.value.statusMessage = t('ws.resubmitted')
         sidebar.value.streamOffline = false
         sidebar.value.streamRetry = 0
       }
       startTaskStream(mediaId, 'ai', goal, analysisMode)
     } catch (error) {
       if (isCurrentWorkspace(mediaId, 'ai', goal, analysisMode)) {
-        showMessage(error.message || '重新提交失败', true)
+        showMessage(error.message || t('ws.resubmitFailed'), true)
       }
     } finally {
       if (isCurrentWorkspace(mediaId, 'ai', goal, analysisMode)) sidebar.value.rerunLoading = false
@@ -549,9 +525,9 @@ export function useAnalysisWorkspace({
       })
       const response = await apiRequest(`/analysis/follow-up?${params}`, { method: 'POST' })
       const answer = await response.text()
-      if (!response.ok) throw new Error(answer || '追问失败')
+      if (!response.ok) throw new Error(answer || t('ws.followUpFailed'))
       if (isCurrentWorkspace(mediaId, 'ai', goal, analysisMode)) {
-        sidebar.value.content += `\n\n## 追问\n${question}\n\n${answer}`
+        sidebar.value.content += `\n\n## ${t('ws.followUp')}\n${question}\n\n${answer}`
         sidebar.value.followUp = ''
         // 答案追加在长文末尾，主动带用户滚过去，否则会以为“点了没反应”。
         onAnswerAppended()
@@ -595,18 +571,18 @@ export function useAnalysisWorkspace({
       const response = await apiRequest(`/analysis/evidence-search?${params}`)
       if (!response.ok) {
         const detail = await response.text()
-        throw new Error(detail || '视频证据检索失败')
+        throw new Error(detail || t('ws.evidenceFailed'))
       }
       const results = await response.json()
       if (requestVersion !== evidenceRequestVersion || sidebar.value.mediaId !== mediaId) return
       sidebar.value.evidenceResults = Array.isArray(results) ? results : []
       if (!sidebar.value.evidenceResults.length) {
-        sidebar.value.evidenceError = '没有找到匹配的视频证据'
+        sidebar.value.evidenceError = t('ws.evidenceNone')
       }
     } catch (error) {
       if (requestVersion !== evidenceRequestVersion || sidebar.value.mediaId !== mediaId) return
       sidebar.value.evidenceResults = []
-      sidebar.value.evidenceError = error.message || '视频证据检索失败'
+      sidebar.value.evidenceError = error.message || t('ws.evidenceFailed')
     } finally {
       if (requestVersion === evidenceRequestVersion && sidebar.value.mediaId === mediaId) {
         sidebar.value.evidenceLoading = false
@@ -618,7 +594,7 @@ export function useAnalysisWorkspace({
     if (sidebar.value.feedbackLoading || sidebar.value.feedback === rating) return
     if (demoMode) {
       sidebar.value.feedback = rating
-      showMessage('演示反馈已记录')
+      showMessage(t('ws.feedbackDemo'))
       return
     }
     const mediaId = sidebar.value.mediaId
@@ -634,7 +610,7 @@ export function useAnalysisWorkspace({
       if (!response.ok) throw new Error(await response.text())
       if (isCurrentWorkspace(mediaId, 'ai', goal, analysisMode)) {
         sidebar.value.feedback = rating
-        showMessage('反馈已记录')
+        showMessage(t('ws.feedbackSaved'))
       }
     } catch (error) {
       if (isCurrentWorkspace(mediaId, 'ai', goal, analysisMode)) {
@@ -654,7 +630,7 @@ export function useAnalysisWorkspace({
   const handlePlaybackError = () => {
     if (!sidebar.value.playbackUrl) return
     sidebar.value.playbackUrl = ''
-    sidebar.value.playbackError = '视频无法播放：可能是播放地址不可用，或视频编码不受当前浏览器支持。请重新加载；链接导入的视频可重新导入后再试。'
+    sidebar.value.playbackError = t('ws.playbackFailed')
   }
 
   const resetWorkspace = () => {
@@ -675,8 +651,8 @@ export function useAnalysisWorkspace({
 
   return {
     sidebar,
-    goalPresets: GOAL_PRESETS,
-    analysisModes: ANALYSIS_MODES,
+    goalPresets: computed(goalPresetOptions),
+    analysisModes: computed(analysisModeOptions),
     traceStages,
     renderedMarkdown,
     transcribe,
@@ -712,7 +688,7 @@ async function readSettledJson(result) {
 }
 
 function modeTitle(value) {
-  return ANALYSIS_MODES.find(m => m.value === value)?.title || value
+  return MODE_VALUES.includes(value) ? t(`mode.${value}`) : value
 }
 
 function analysisScope(goal, mode) {
@@ -721,8 +697,8 @@ function analysisScope(goal, mode) {
 
 function formatDuration(value) {
   const milliseconds = Number(value) || 0
-  if (milliseconds < 1000) return `${Math.round(milliseconds)} 毫秒`
-  return `${(milliseconds / 1000).toFixed(milliseconds < 10_000 ? 1 : 0)} 秒`
+  if (milliseconds < 1000) return t('ws.ms', { n: Math.round(milliseconds) })
+  return t('ws.s', { n: (milliseconds / 1000).toFixed(milliseconds < 10_000 ? 1 : 0) })
 }
 
 function goalDraftKey(mediaId) {
@@ -731,9 +707,9 @@ function goalDraftKey(mediaId) {
 
 function loadGoalDraft(mediaId) {
   try {
-    return localStorage.getItem(goalDraftKey(mediaId)) || DEFAULT_GOAL
+    return localStorage.getItem(goalDraftKey(mediaId)) || t('goal.default')
   } catch {
-    return DEFAULT_GOAL
+    return t('goal.default')
   }
 }
 

@@ -1,4 +1,5 @@
 import { apiRequest } from './api'
+import { t } from './i18n'
 
 /**
  * 秒传：先算整文件 MD5 问服务端“有没有这份内容”，有的话再回答一道挑战——
@@ -14,7 +15,7 @@ function runHashWorker(message, onProgress, signal) {
     const stop = () => worker.terminate()
     const onAbort = () => {
       stop()
-      reject(Object.assign(new Error('上传已取消'), { aborted: true }))
+      reject(Object.assign(new Error(t('chunk.cancelled')), { aborted: true }))
     }
     signal?.addEventListener('abort', onAbort, { once: true })
     worker.onmessage = ({ data }) => {
@@ -30,7 +31,7 @@ function runHashWorker(message, onProgress, signal) {
     worker.onerror = event => {
       signal?.removeEventListener('abort', onAbort)
       stop()
-      reject(new Error(event.message || '文件指纹计算失败'))
+      reject(new Error(event.message || t('hash.failed')))
     }
     worker.postMessage(message)
   })

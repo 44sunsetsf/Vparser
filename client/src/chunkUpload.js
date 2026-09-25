@@ -1,5 +1,6 @@
 import { apiRequest } from './api'
 import { tryInstantUpload } from './instantUpload'
+import { t } from './i18n'
 
 const CHUNK_SIZE = 5 * 1024 * 1024
 const UPLOAD_CONCURRENCY = 3
@@ -14,7 +15,7 @@ export const MAX_UPLOAD_BYTES = MAX_TOTAL_CHUNKS * CHUNK_SIZE
 
 /** 用户主动取消上传时抛出，调用方据此区分“取消”与“失败”。 */
 export class UploadAbortedError extends Error {
-  constructor(message = '上传已取消') {
+  constructor(message = t('chunk.cancelled')) {
     super(message)
     this.name = 'UploadAbortedError'
     this.aborted = true
@@ -37,18 +38,18 @@ export function formatBytes(bytes) {
 export function formatDurationText(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) return ''
   const total = Math.round(seconds)
-  if (total < 60) return `${total} 秒`
+  if (total < 60) return t('time.s', { s: total })
   const minutes = Math.floor(total / 60)
-  if (minutes < 60) return `${minutes} 分 ${String(total % 60).padStart(2, '0')} 秒`
-  return `${Math.floor(minutes / 60)} 小时 ${String(minutes % 60).padStart(2, '0')} 分`
+  if (minutes < 60) return t('time.ms', { m: minutes, s: String(total % 60).padStart(2, '0') })
+  return t('time.hm', { h: Math.floor(minutes / 60), m: String(minutes % 60).padStart(2, '0') })
 }
 
 /** 选择文件时的前置校验，避免进入上传态之后才失败。 */
 export function validateVideoFile(file) {
-  if (!file) return '请先选择视频文件'
-  if (!file.size) return '该文件大小为 0，可能已损坏或仍在同步，请重新选择'
+  if (!file) return t('file.none')
+  if (!file.size) return t('file.empty')
   if (file.size > MAX_UPLOAD_BYTES) {
-    return `文件 ${formatBytes(file.size)}，超过 ${formatBytes(MAX_UPLOAD_BYTES)} 上限，请先压缩或分段`
+    return t('file.tooBig', { size: formatBytes(file.size), max: formatBytes(MAX_UPLOAD_BYTES) })
   }
   return ''
 }
@@ -199,7 +200,7 @@ export async function uploadVideoInChunks(file, onProgress = () => {}, signal) {
   })
   if (!response.ok) {
     throwIfAborted(signal)
-    throw new Error(await readErrorText(response) || '分片合并失败，可重新选择同一文件继续')
+    throw new Error(await readErrorText(response) || t('chunk.mergeFailed'))
   }
   const media = await response.json()
   forgetUploadProgress(file)
@@ -230,7 +231,7 @@ async function resolveUploadSession(file, totalChunks, signal) {
       if (isAbortError(error, signal)) throw new UploadAbortedError()
       // 断网/超时意味着“进度未知”，而不是“进度失效”。此时必须保留凭据并中断本次上传，
       // 否则用户恢复网络后会被迫从 0 重传，之前传完的分片全部作废。
-      throw new Error('网络异常，暂时无法确认上传进度。续传进度已保留，请稍后继续上传')
+      throw new Error(t('chunk.statusOffline'))
     }
 
     if (response.ok) {
@@ -245,7 +246,7 @@ async function resolveUploadSession(file, totalChunks, signal) {
     if (!isDeadUploadSession(response.status, detail)) {
       // 401 / 403 / 429 / 5xx：凭据本身可能仍然有效，一律保留，交由用户稍后重试。
       const error = new Error(detail
-        || `暂时无法确认上传进度（HTTP ${response.status}）。续传进度已保留，请稍后继续上传`)
+        || t('chunk.statusHttp', { status: response.status }))
       error.status = response.status
       throw error
     }
@@ -264,7 +265,7 @@ async function initializeUpload(filename, totalChunks, signal) {
     signal
   })
   const body = (await response.text()).trim()
-  if (!response.ok) throw new Error(body || '上传初始化失败，请稍后重试')
+  if (!response.ok) throw new Error(body || t('chunk.initFailed'))
   return body
 }
 
@@ -284,7 +285,7 @@ async function uploadChunkWithRetry(file, uploadId, chunkIndex, totalChunks, sig
     }
   }
   throw new Error(
-    `分片 ${chunkIndex + 1}/${totalChunks} 上传失败：${lastError?.message || '网络异常'}`
+    t('chunk.failed', { n: chunkIndex + 1, total: totalChunks, error: lastError?.message || t('chunk.network') })
   )
 }
 
@@ -302,7 +303,7 @@ async function uploadChunk(file, uploadId, chunkIndex, totalChunks, signal) {
     signal
   })
   if (response.ok) return
-  const error = new Error(await readErrorText(response) || '服务端未接收该分片')
+  const error = new Error(await readErrorText(response) || t('chunk.rejected'))
   error.status = response.status
   throw error
 }

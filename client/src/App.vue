@@ -19,12 +19,23 @@
             <span class="status-text">{{ systemStatusText }}</span>
           </div>
 
-          <button v-if="!currentUser" class="auth-btn" @click="openAuthModal">登录 / 注册</button>
+          <div class="lang-switch" role="group" :aria-label="t('nav.language')">
+            <button
+                v-for="option in LOCALES"
+                :key="option.value"
+                type="button"
+                :class="{ active: locale === option.value }"
+                :aria-pressed="locale === option.value"
+                @click="setLocale(option.value)"
+            >{{ option.label }}</button>
+          </div>
+
+          <button v-if="!currentUser" class="auth-btn" @click="openAuthModal">{{ t('nav.login') }}</button>
 
           <div v-else class="user-profile">
             <span class="user-avatar" aria-hidden="true">{{ (currentUser.nickname || currentUser.username || '?').slice(0, 1) }}</span>
             <span class="user-name">{{ currentUser.nickname }}</span>
-            <button class="logout-btn" @click="logout" title="退出登录" aria-label="退出登录">
+            <button class="logout-btn" @click="logout" :title="t('nav.logout')" :aria-label="t('nav.logout')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
             </button>
           </div>
@@ -35,13 +46,13 @@
     <main class="main-container">
       <section class="hero-section">
         <div class="hero-copy">
-          <h1 class="slogan-main">把一段长视频，<br />变成可以追溯的笔记。</h1>
-          <p class="slogan-sub">上传课程或讲座视频，写下你想得到什么。Agent 会读懂语音和画面文字，给出每条结论对应的时间点。</p>
+          <h1 class="slogan-main" v-html="t('hero.title')"></h1>
+          <p class="slogan-sub">{{ t('hero.sub') }}</p>
         </div>
         <ol class="hero-steps">
-          <li><strong>上传视频</strong><span>本地文件或在线链接</span></li>
-          <li><strong>写下目标</strong><span>复习笔记、观点审查、剪辑脚本……</span></li>
-          <li><strong>核对结论</strong><span>点时间点，直接跳到原画面</span></li>
+          <li><strong>{{ t('hero.step1') }}</strong><span>{{ t('hero.step1.sub') }}</span></li>
+          <li><strong>{{ t('hero.step2') }}</strong><span>{{ t('hero.step2.sub') }}</span></li>
+          <li><strong>{{ t('hero.step3') }}</strong><span>{{ t('hero.step3.sub') }}</span></li>
         </ol>
 
         <svg class="horizon" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true">
@@ -72,16 +83,16 @@
                 <span class="pane-icon" aria-hidden="true">
                   <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 </span>
-                <span class="pane-title">{{ isDragOver ? '松开即可上传' : '上传本地视频' }}</span>
-                <span class="pane-desc">点击选择，或把文件拖到这里。支持 mp4、mov、mkv、webm，大文件可断点续传。</span>
+                <span class="pane-title">{{ isDragOver ? t('upload.drop') : t('upload.local') }}</span>
+                <span class="pane-desc">{{ t('upload.local.desc') }}</span>
               </label>
 
               <div class="pane pane-url">
                 <span class="pane-icon" aria-hidden="true">
                   <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
                 </span>
-                <span class="pane-title">从链接导入</span>
-                <span class="pane-desc">粘贴 B 站、YouTube 或抖音的视频地址。</span>
+                <span class="pane-title">{{ t('upload.url') }}</span>
+                <span class="pane-desc">{{ t('upload.url.desc') }}</span>
                 <div class="url-input-box" @click.stop>
                   <input
                       v-model="videoUrl"
@@ -90,11 +101,11 @@
                       autocomplete="off"
                       spellcheck="false"
                       placeholder="https://"
-                      aria-label="视频链接"
+                      :aria-label="t('upload.url.aria')"
                       :disabled="uploading"
                       @keyup.enter="handleUrlUpload"
                   />
-                  <button class="url-go-btn" :disabled="uploading || !videoUrl.trim()" @click="handleUrlUpload">导入</button>
+                  <button class="url-go-btn" :disabled="uploading || !videoUrl.trim()" @click="handleUrlUpload">{{ t('upload.url.go') }}</button>
                 </div>
               </div>
             </div>
@@ -106,7 +117,7 @@
                   v-if="uploadProgress.percent !== null"
                   class="upload-progress"
                   role="progressbar"
-                  aria-label="视频上传进度"
+                  :aria-label="t('upload.progress.aria')"
                   aria-valuemin="0"
                   aria-valuemax="100"
                   :aria-valuenow="uploadProgress.percent"
@@ -117,15 +128,15 @@
               <span v-if="uploadProgress.detail" class="busy-stat" aria-live="polite">{{ uploadProgress.detail }}</span>
               <span v-if="uploadProgress.warning" class="busy-warning" role="status">{{ uploadProgress.warning }}</span>
               <div v-if="uploadAbort" class="busy-actions">
-                <button type="button" @click="cancelUpload">取消上传</button>
+                <button type="button" @click="cancelUpload">{{ t('upload.cancel') }}</button>
               </div>
             </div>
           </div>
 
           <div v-if="resumableFile && !uploading" class="upload-resume" role="status">
             <span>{{ resumeHint }}</span>
-            <button type="button" @click="resumeUpload">继续上传</button>
-            <button type="button" @click="discardResumableUpload">重新开始</button>
+            <button type="button" @click="resumeUpload">{{ t('upload.resume') }}</button>
+            <button type="button" @click="discardResumableUpload">{{ t('upload.restart') }}</button>
           </div>
         </div>
         <transition name="toast-pop">
@@ -135,7 +146,7 @@
               :class="{ 'error': messageIsError }"
               :role="messageIsError ? 'alert' : 'status'"
               :aria-live="messageIsError ? 'assertive' : 'polite'"
-              :title="messageIsError ? '点击关闭这条提示' : null"
+              :title="messageIsError ? t('msg.dismiss') : null"
               @click="dismissMessage"
           >
             {{ message }}
@@ -146,12 +157,12 @@
       <section v-if="list.length > 0" class="workspace-section">
         <div class="section-header">
           <div class="library-title">
-            <h2>我的视频</h2>
+            <h2>{{ t('lib.title') }}</h2>
             <span class="count-chip">{{ list.length }}</span>
           </div>
           <label class="library-search">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7.5"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
-            <input v-model="searchQuery" type="search" placeholder="按名称查找" aria-label="按名称查找视频" />
+            <input v-model="searchQuery" type="search" :placeholder="t('lib.search')" :aria-label="t('lib.search.aria')" />
           </label>
         </div>
         <ul class="card-grid">
@@ -177,26 +188,26 @@
               <button
                   class="dock-item ai-core"
                   :disabled="item.status !== 'COMPLETED'"
-                  :title="actionTitle(item, '用 Agent 分析')"
+                  :title="actionTitle(item, t('lib.analyse.title'))"
                   @click="openAgent(item)"
-              >分析视频</button>
+              >{{ t('lib.analyse') }}</button>
               <button
                   class="dock-item"
                   :disabled="item.status !== 'COMPLETED'"
-                  :title="actionTitle(item, '提取文字')"
+                  :title="actionTitle(item, t('lib.transcribe.title'))"
                   @click="transcribe(item.id)"
-              >提取文字</button>
+              >{{ t('lib.transcribe') }}</button>
               <button
                   class="dock-item"
                   :disabled="item.status !== 'COMPLETED'"
-                  :title="actionTitle(item, '下载音频')"
+                  :title="actionTitle(item, t('lib.audio.title'))"
                   @click="downloadAudio(item)"
-              >下载音频</button>
+              >{{ t('lib.audio') }}</button>
               <button
                   class="delete-btn"
                   :disabled="deletingId === item.id"
-                  :title="deletingId === item.id ? '正在删除…' : '删除视频'"
-                  :aria-label="`删除 ${item.filename}`"
+                  :title="deletingId === item.id ? t('lib.deleting') : t('lib.delete')"
+                  :aria-label="t('lib.delete.aria', { name: item.filename })"
                   @click.stop="deleteItem(item)"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -207,12 +218,12 @@
           </li>
         </ul>
         <div v-if="visibleList.length === 0" class="library-empty">
-          <p>没有名称包含“{{ searchQuery }}”的视频。</p>
-          <button type="button" @click="searchQuery = ''">清除搜索</button>
+          <p>{{ t('lib.noMatch', { query: searchQuery }) }}</p>
+          <button type="button" @click="searchQuery = ''">{{ t('lib.clear') }}</button>
         </div>
       </section>
       <section v-else-if="currentUser" class="workspace-section empty-library">
-        <p>还没有视频。先在上方上传一段，或者用 <code>docs/samples/binary-tree-demo.mp4</code> 试试。</p>
+        <p v-html="t('lib.empty')"></p>
       </section>
 
       <div class="sidebar-backdrop" v-if="sidebar.visible" @click="closeSidebar"></div>
@@ -224,7 +235,7 @@
           role="dialog"
           aria-modal="true"
           tabindex="-1"
-          :aria-label="sidebar.title || '任务详情'"
+          :aria-label="sidebar.title || t('side.details')"
       >
         <div class="sidebar-header">
           <div class="sidebar-title">
@@ -236,7 +247,7 @@
             </span>
             {{ sidebar.title }}
           </div>
-          <button class="close-btn" @click="closeSidebar" aria-label="关闭分析面板">×</button>
+          <button class="close-btn" @click="closeSidebar" :aria-label="t('side.close')">×</button>
         </div>
         <div ref="sidebarBody" class="sidebar-body">
           <div v-if="sidebar.type === 'ai'" class="video-evidence">
@@ -249,15 +260,15 @@
                 preload="metadata"
                 @error="handlePlaybackError"
             ></video>
-            <div v-else-if="sidebar.playbackLoading" class="video-evidence-loading">正在载入原视频…</div>
+            <div v-else-if="sidebar.playbackLoading" class="video-evidence-loading">{{ t('side.videoLoading') }}</div>
             <div v-else-if="sidebar.playbackError" class="video-evidence-error" role="alert">
               <span>{{ sidebar.playbackError }}</span>
-              <button type="button" @click="retryPlayback">重新加载</button>
+              <button type="button" @click="retryPlayback">{{ t('side.reload') }}</button>
             </div>
-            <p v-if="sidebar.playbackUrl">点击分析结果中的时间戳，可跳转到对应画面</p>
+            <p v-if="sidebar.playbackUrl">{{ t('side.seekHint') }}</p>
           </div>
           <div v-if="sidebar.type === 'ai' && sidebar.mode === 'compose'" class="agent-composer">
-            <p class="agent-caption">分析模式</p>
+            <p class="agent-caption">{{ t('side.mode') }}</p>
             <div class="goal-presets agent-mode-row">
               <button
                   v-for="m in analysisModes"
@@ -269,16 +280,16 @@
                 <span>{{ m.description }}</span>
               </button>
             </div>
-            <p class="agent-caption">你想从这段视频里得到什么？</p>
+            <p class="agent-caption">{{ t('side.goal') }}</p>
             <p v-if="sidebar.error" class="inline-error" role="alert">{{ sidebar.error }}</p>
             <textarea
                 v-model="sidebar.goal"
                 maxlength="500"
-                placeholder="例如：梳理核心观点，给出带时间戳的证据和可执行建议（Ctrl / ⌘ + Enter 提交）"
+                :placeholder="t('side.goal.placeholder')"
                 @keydown.ctrl.enter.prevent="submitAgent"
                 @keydown.meta.enter.prevent="submitAgent"
             ></textarea>
-            <p v-if="sidebar.goal.length > 400" class="field-counter">已输入 {{ sidebar.goal.length }} / 500 字</p>
+            <p v-if="sidebar.goal.length > 400" class="field-counter">{{ t('side.counter', { count: sidebar.goal.length }) }}</p>
             <div class="goal-presets">
               <button
                   v-for="preset in goalPresets"
@@ -291,7 +302,7 @@
               </button>
             </div>
             <button class="agent-run-btn" :disabled="!sidebar.goal.trim()" @click="submitAgent">
-              {{ sidebar.error ? '重新分析' : '开始分析' }}
+              {{ sidebar.error ? t('side.rerun') : t('side.run') }}
             </button>
           </div>
 
@@ -300,16 +311,16 @@
               <div class="loader" aria-hidden="true"></div>
               <p aria-live="polite">{{ loadingHeadline }}</p>
               <p v-if="sidebar.streamOffline" class="stream-offline" role="status">
-                连接中断，正在自动重连（第 {{ sidebar.streamRetry }} 次）· 任务仍在服务端继续
+                {{ t('side.reconnecting', { count: sidebar.streamRetry }) }}
               </p>
-              <p class="loading-hint">可以关闭本面板，任务会在后台继续，完成后会通知你</p>
+              <p class="loading-hint">{{ t('side.background') }}</p>
             </div>
             <div v-if="sidebar.plan?.tasks?.length" class="agent-meta-block">
-              <span class="meta-label">任务计划</span>
+              <span class="meta-label">{{ t('side.plan') }}</span>
               <ol><li v-for="task in sidebar.plan.tasks" :key="task">{{ task }}</li></ol>
             </div>
             <div v-if="traceStages.length" class="agent-meta-block">
-              <span class="meta-label">已完成阶段</span>
+              <span class="meta-label">{{ t('side.stagesDone') }}</span>
               <div class="stage-list"><span v-for="stage in traceStages" :key="stage[0]">{{ stage[0] }} · {{ stage[1] }}</span></div>
             </div>
           </div>
@@ -317,21 +328,21 @@
           <div v-else>
             <div v-if="sidebar.type === 'ai'">
               <div class="result-actions">
-                <button type="button" @click="startNewAnalysis">更换产物</button>
-                <button type="button" :disabled="!sidebar.content" @click="copyResult">复制结果</button>
-                <button type="button" :disabled="!sidebar.content" @click="downloadResult">导出 Markdown</button>
+                <button type="button" @click="startNewAnalysis">{{ t('side.newResult') }}</button>
+                <button type="button" :disabled="!sidebar.content" @click="copyResult">{{ t('side.copy') }}</button>
+                <button type="button" :disabled="!sidebar.content" @click="downloadResult">{{ t('side.export') }}</button>
               </div>
               <div class="evidence-search">
                 <div class="evidence-search-form">
                   <input
                       v-model="sidebar.evidenceQuery"
-                      aria-label="视频证据检索"
+                      :aria-label="t('side.evidence.aria')"
                       maxlength="500"
-                      placeholder="定位 PPT、字幕、代码或某段讲解"
+                      :placeholder="t('side.evidence.placeholder')"
                       @keyup.enter="searchEvidence"
                   />
                   <button type="button" :disabled="sidebar.evidenceLoading || !sidebar.evidenceQuery.trim()" @click="searchEvidence">
-                    {{ sidebar.evidenceLoading ? '检索中' : '定位证据' }}
+                    {{ sidebar.evidenceLoading ? t('side.evidence.searching') : t('side.evidence.go') }}
                   </button>
                 </div>
                 <p v-if="sidebar.evidenceError" class="evidence-search-error" aria-live="polite">{{ sidebar.evidenceError }}</p>
@@ -340,47 +351,47 @@
                       v-for="hit in sidebar.evidenceResults"
                       :key="`${hit.startMs}-${hit.endMs}`"
                       type="button"
-                      :title="hit.snippet || '该时间段暂无可展示文本'"
+                      :title="hit.snippet || t('side.evidence.empty')"
                       @click="seekToEvidence(hit.startMs)"
                   >
                     <strong>{{ formatEvidenceTime(hit.startMs) }}</strong>
-                    <small>{{ hit.source || '视频证据' }}</small>
-                    <span>{{ hit.snippet || '该时间段暂无可展示文本' }}</span>
+                    <small>{{ hit.source || t('side.evidence.source') }}</small>
+                    <span>{{ hit.snippet || t('side.evidence.empty') }}</span>
                   </button>
                 </div>
               </div>
               <div class="markdown-content" v-html="renderedMarkdown" @click="seekEvidence"></div>
               <details v-if="sidebar.plan?.tasks?.length || traceStages.length" class="agent-inspector">
-                <summary>分析详情</summary>
+                <summary>{{ t('side.inspector') }}</summary>
                 <div class="agent-inspector-content">
                 <div v-if="sidebar.plan?.tasks?.length" class="agent-meta-block">
-                  <span class="meta-label">Planner 任务</span>
+                  <span class="meta-label">{{ t('side.plannerTasks') }}</span>
                   <div v-if="sidebar.editingPlan" class="plan-editor">
                     <div v-for="(_, index) in sidebar.planDraft" :key="index" class="plan-editor-row">
-                      <input v-model="sidebar.planDraft[index]" maxlength="500" :aria-label="`任务 ${index + 1}`" />
-                      <button type="button" title="删除任务" @click="removePlanTask(index)">×</button>
+                      <input v-model="sidebar.planDraft[index]" maxlength="500" :aria-label="t('side.task', { n: index + 1 })" />
+                      <button type="button" :title="t('side.removeTask')" @click="removePlanTask(index)">×</button>
                     </div>
-                    <button v-if="sidebar.planDraft.length < 5" type="button" @click="addPlanTask">添加任务</button>
+                    <button v-if="sidebar.planDraft.length < 5" type="button" @click="addPlanTask">{{ t('side.addTask') }}</button>
                     <div class="plan-editor-actions">
-                      <button type="button" @click="cancelPlanEdit">取消</button>
+                      <button type="button" @click="cancelPlanEdit">{{ t('side.cancel') }}</button>
                       <button type="button" :disabled="sidebar.rerunLoading" @click="rerunWithPlan">
-                        {{ sidebar.rerunLoading ? '提交中' : '按新计划重跑' }}
+                        {{ sidebar.rerunLoading ? t('side.submitting') : t('side.rerunPlan') }}
                       </button>
                     </div>
                   </div>
                   <template v-else>
                     <ol><li v-for="task in sidebar.plan.tasks" :key="task">{{ task }}</li></ol>
-                    <button type="button" class="plan-edit-trigger" @click="startPlanEdit">调整计划</button>
+                    <button type="button" class="plan-edit-trigger" @click="startPlanEdit">{{ t('side.editPlan') }}</button>
                   </template>
                 </div>
                 <div v-if="traceStages.length" class="agent-meta-block">
-                  <span class="meta-label">执行轨迹</span>
+                  <span class="meta-label">{{ t('side.trace') }}</span>
                   <div class="stage-list"><span v-for="stage in traceStages" :key="stage[0]">{{ stage[0] }} · {{ stage[1] }}</span></div>
                 </div>
                 <div v-if="sidebar.evaluation && Object.keys(sidebar.evaluation).length" class="quality-row">
-                  <span>结构完整 {{ sidebar.evaluation.structuredValid ? '通过' : '待完善' }}</span>
-                  <span>证据支持 {{ formatPercent(sidebar.evaluation.evidenceSupportRate) }}</span>
-                  <span>Critic {{ sidebar.evaluation.criticPassed ? '通过' : '达到轮次上限' }}</span>
+                  <span>{{ t('side.quality.structure', { state: sidebar.evaluation.structuredValid ? t('side.quality.pass') : t('side.quality.todo') }) }}</span>
+                  <span>{{ t('side.quality.evidence', { rate: formatPercent(sidebar.evaluation.evidenceSupportRate) }) }}</span>
+                  <span>{{ t('side.quality.critic', { state: sidebar.evaluation.criticPassed ? t('side.quality.pass') : t('side.quality.limit') }) }}</span>
                 </div>
                 </div>
               </details>
@@ -388,31 +399,31 @@
                 <textarea
                     v-model="sidebar.followUp"
                     maxlength="500"
-                    placeholder="基于视频继续追问...（Ctrl / ⌘ + Enter 发送）"
+                    :placeholder="t('side.followUp.placeholder')"
                     @keydown.ctrl.enter.prevent="submitFollowUp"
                     @keydown.meta.enter.prevent="submitFollowUp"
                 ></textarea>
                 <button :disabled="sidebar.followUpLoading || !sidebar.followUp.trim()" @click="submitFollowUp">
-                  {{ sidebar.followUpLoading ? '分析中' : '追问' }}
+                  {{ sidebar.followUpLoading ? t('side.followUp.loading') : t('side.followUp.send') }}
                 </button>
               </div>
               <div class="feedback-row">
-                <span>这个结果有帮助吗？</span>
-                <button :disabled="sidebar.feedbackLoading" :class="{ active: sidebar.feedback === 1 }" :aria-pressed="sidebar.feedback === 1" @click="sendFeedback(1)" title="有帮助">赞</button>
-                <button :disabled="sidebar.feedbackLoading" :class="{ active: sidebar.feedback === -1 }" :aria-pressed="sidebar.feedback === -1" @click="sendFeedback(-1)" title="需改进">踩</button>
+                <span>{{ t('side.helpful') }}</span>
+                <button :disabled="sidebar.feedbackLoading" :class="{ active: sidebar.feedback === 1 }" :aria-pressed="sidebar.feedback === 1" @click="sendFeedback(1)" :title="t('side.up.title')">{{ t('side.up') }}</button>
+                <button :disabled="sidebar.feedbackLoading" :class="{ active: sidebar.feedback === -1 }" :aria-pressed="sidebar.feedback === -1" @click="sendFeedback(-1)" :title="t('side.down.title')">{{ t('side.down') }}</button>
               </div>
             </div>
             <div v-else class="text-content">
               <p v-if="sidebar.error" class="inline-error" role="alert">{{ sidebar.error }}</p>
               <template v-if="sidebar.content">
                 <div class="result-actions">
-                  <button type="button" @click="copyResult">复制全文</button>
-                  <button type="button" @click="downloadResult">导出文本</button>
+                  <button type="button" @click="copyResult">{{ t('side.copyAll') }}</button>
+                  <button type="button" @click="downloadResult">{{ t('side.exportText') }}</button>
                 </div>
                 <p class="text-meta">{{ transcriptMeta }}</p>
                 <pre>{{ sidebar.content }}</pre>
               </template>
-              <p v-else-if="!sidebar.error" class="text-meta">这个视频还没有可展示的转写文本。</p>
+              <p v-else-if="!sidebar.error" class="text-meta">{{ t('side.noTranscript') }}</p>
             </div>
           </div>
         </div>
@@ -428,31 +439,31 @@
             @keydown="trapAuthFocus"
         >
           <div class="auth-header">
-            <h2 id="auth-title" class="auth-title">{{ authMode === 'login' ? '登录' : '创建账号' }}</h2>
-            <button class="close-btn" @click="closeAuthModal" aria-label="关闭登录窗口">×</button>
+            <h2 id="auth-title" class="auth-title">{{ authMode === 'login' ? t('auth.login') : t('auth.register') }}</h2>
+            <button class="close-btn" @click="closeAuthModal" :aria-label="t('auth.close')">×</button>
           </div>
           <form class="auth-body" @submit.prevent="handleAuth">
             <div class="input-group">
-              <label for="auth-username">用户名</label>
-              <input id="auth-username" v-model="authForm.username" type="text" placeholder="输入账号" autocomplete="username" autofocus />
+              <label for="auth-username">{{ t('auth.username') }}</label>
+              <input id="auth-username" v-model="authForm.username" type="text" :placeholder="t('auth.username.placeholder')" autocomplete="username" autofocus />
             </div>
             <div class="input-group">
-              <label for="auth-password">密码</label>
-              <input id="auth-password" v-model="authForm.password" type="password" placeholder="输入密码" :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'" />
+              <label for="auth-password">{{ t('auth.password') }}</label>
+              <input id="auth-password" v-model="authForm.password" type="password" :placeholder="t('auth.password.placeholder')" :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'" />
             </div>
             <div class="input-group" v-if="authMode === 'register'">
-              <label for="auth-nickname">昵称</label>
-              <input id="auth-nickname" v-model="authForm.nickname" type="text" placeholder="别人看到的名字（可选）" autocomplete="nickname" />
+              <label for="auth-nickname">{{ t('auth.nickname') }}</label>
+              <input id="auth-nickname" v-model="authForm.nickname" type="text" :placeholder="t('auth.nickname.placeholder')" autocomplete="nickname" />
             </div>
             <div class="auth-action">
               <button type="submit" class="primary-btn" :disabled="authLoading">
-                <span v-if="!authLoading">{{ authMode === 'login' ? '登录' : '创建账号' }}</span>
-                <span v-else>请稍候…</span>
+                <span v-if="!authLoading">{{ authMode === 'login' ? t('auth.login') : t('auth.register') }}</span>
+                <span v-else>{{ t('auth.wait') }}</span>
               </button>
             </div>
             <div class="auth-toggle">
-              <span class="toggle-text">{{ authMode === 'login' ? '没有账号?' : '已有账号?' }}</span>
-              <button type="button" class="toggle-link" @click="switchAuthMode()">{{ authMode === 'login' ? '去注册' : '去登录' }}</button>
+              <span class="toggle-text">{{ authMode === 'login' ? t('auth.noAccount') : t('auth.hasAccount') }}</span>
+              <button type="button" class="toggle-link" @click="switchAuthMode()">{{ authMode === 'login' ? t('auth.toRegister') : t('auth.toLogin') }}</button>
             </div>
             <p
                 v-if="authMessage"
@@ -480,6 +491,9 @@ import {
   validateVideoFile
 } from './chunkUpload'
 import { DEMO_ITEM } from './demoData'
+import { LOCALES, locale, localeTag, t } from './i18n'
+
+const setLocale = value => { locale.value = value }
 import { createTaskStreams } from './taskEvents'
 import { useAnalysisWorkspace } from './useAnalysisWorkspace'
 
@@ -491,7 +505,7 @@ const videoUrl = ref('')
 const message = ref('')
 const messageIsError = ref(false)
 const uploading = ref(false)
-const uploadProgress = ref({ label: '准备上传', filename: '', percent: null, detail: '', warning: '' })
+const uploadProgress = ref({ label: t('upload.prepare'), filename: '', percent: null, detail: '', warning: '' })
 const uploadAbort = ref(null)
 const resumableFile = ref(null)
 const resumableChunks = ref({ done: 0, total: 0 })
@@ -533,14 +547,14 @@ let focusBeforeSidebar = null
 const activeTaskOf = mediaId => activeTasks.value.find(task => String(task.id) === String(mediaId))
 
 const systemStatusText = computed(() => {
-  if (isOffline.value) return '网络已断开'
+  if (isOffline.value) return t('status.offline')
   if (uploading.value) {
     return uploadProgress.value.percent !== null
-      ? `上传 ${uploadProgress.value.percent}%`
-      : '处理中'
+      ? t('status.uploading', { percent: uploadProgress.value.percent })
+      : t('status.processing')
   }
-  if (activeTasks.value.length) return `后台任务 ${activeTasks.value.length}`
-  return '系统就绪'
+  if (activeTasks.value.length) return t('status.tasks', { count: activeTasks.value.length })
+  return t('status.ready')
 })
 
 const cardStatusClass = item => {
@@ -549,19 +563,19 @@ const cardStatusClass = item => {
 }
 const cardStatusLabel = item => {
   const task = activeTaskOf(item.id)
-  if (task) return task.type === 'ai' ? '分析中' : '转写中'
+  if (task) return task.type === 'ai' ? t('lib.state.analysing') : t('lib.state.transcribing')
   return mediaStatusLabel(item.status)
 }
 const cardStatusTitle = item => {
   const task = activeTaskOf(item.id)
   if (!task) return null
   return task.type === 'ai'
-    ? 'AI 分析正在后台执行，完成后会提示你'
-    : '文字提取正在后台执行，完成后会提示你'
+    ? t('lib.state.aiRunning')
+    : t('lib.state.asrRunning')
 }
 const actionTitle = (item, label) => item.status === 'COMPLETED'
   ? null
-  : `视频尚未处理完成，暂时无法${label}`
+  : t('lib.notReady', { action: label })
 
 const elapsedLabel = computed(() => {
   const total = elapsedSeconds.value
@@ -572,25 +586,25 @@ const elapsedLabel = computed(() => {
 
 const loadingHeadline = computed(() => {
   const fallback = sidebar.value.type === 'ai'
-    ? 'Agent 正在分析视频证据'
-    : '正在识别视频语音'
+    ? t('side.agentWorking')
+    : t('side.asrWorking')
   const headline = sidebar.value.statusMessage || fallback
   // 用“已等待”而不是“已运行”：接管历史任务时计时是从打开面板算起的。
-  return elapsedLabel.value ? `${headline} · 已等待 ${elapsedLabel.value}` : headline
+  return elapsedLabel.value ? t('side.waited', { headline, time: elapsedLabel.value }) : headline
 })
 
 const transcriptMeta = computed(() => {
   const length = sidebar.value.content?.length || 0
   if (!length) return ''
-  return `共 ${length.toLocaleString('zh-CN')} 字`
+  return t('side.chars', { count: length.toLocaleString(localeTag()) })
 })
 
 const resumeHint = computed(() => {
   const target = resumableFile.value
   if (!target) return ''
   const { done, total } = resumableChunks.value
-  const progress = total ? `已完成 ${Math.round((done / total) * 100)}%` : '已保留上传进度'
-  return `${target.name} ${progress}，可继续未完成的上传`
+  const progress = total ? t('upload.resume.done', { percent: Math.round((done / total) * 100) }) : t('upload.resume.kept')
+  return t('upload.resume.hint', { name: target.name, progress })
 })
 
 // --- 核心业务逻辑 ---
@@ -614,17 +628,17 @@ const resetDragState = () => {
 /** 统一入口：登录、格式、体积三道校验全部在进入上传态之前完成。 */
 const startUpload = async (selectedFile, extraFileCount = 0) => {
   if (uploading.value) {
-    showMsg('已有上传任务在进行，请等当前任务结束', true)
+    showMsg(t('msg.busy'), true)
     return
   }
   if (!currentUser.value) {
-    showMsg('⚠️ 权限受限：请先登录系统', true)
+    showMsg(t('msg.loginFirst'), true)
     openAuthModal()
     return
   }
   if (!selectedFile) return
   if (!isSupportedVideo(selectedFile)) {
-    showMsg(`⚠️ ${selectedFile.name} 不是受支持的视频格式`, true)
+    showMsg(t('msg.unsupported', { name: selectedFile.name }), true)
     return
   }
   const invalid = validateVideoFile(selectedFile)
@@ -633,7 +647,7 @@ const startUpload = async (selectedFile, extraFileCount = 0) => {
     return
   }
   if (extraFileCount > 0) {
-    showMsg(`一次只处理一个视频，已选择 ${selectedFile.name}，其余 ${extraFileCount} 个已忽略`)
+    showMsg(t('msg.onlyOne', { name: selectedFile.name, count: extraFileCount }))
   }
   file.value = selectedFile
   videoUrl.value = ''
@@ -655,10 +669,10 @@ const handleDrop = async (e) => {
 
 const buildUploadWarning = progress => {
   if (progress.retryingCount) {
-    return `网络不稳定，正在重试 ${progress.retryingCount} 个分片（第 ${progress.retryAttempt}/${progress.retryMaxAttempts} 次）`
+    return t('upload.retrying', { count: progress.retryingCount, attempt: progress.retryAttempt, max: progress.retryMaxAttempts })
   }
   if (progress.resumedChunks) {
-    return `已续传：跳过 ${progress.resumedChunks} 个此前完成的分片`
+    return t('upload.resumed', { count: progress.resumedChunks })
   }
   return ''
 }
@@ -667,7 +681,7 @@ const applyUploadProgress = progress => {
   lastUploadProgress = progress
   if (progress.phase === 'hashing') {
     uploadProgress.value = {
-      label: '正在计算文件指纹，检查是否可以秒传',
+      label: t('upload.hashing'),
       filename: file.value?.name || uploadProgress.value.filename,
       percent: progress.percent,
       detail: `${formatBytes(progress.uploadedBytes)} / ${formatBytes(progress.totalBytes)}`,
@@ -677,14 +691,14 @@ const applyUploadProgress = progress => {
   }
   const merging = progress.phase === 'merging'
   const detail = [`${formatBytes(progress.uploadedBytes)} / ${formatBytes(progress.totalBytes)}`]
-  detail.push(`分片 ${progress.completedChunks}/${progress.totalChunks}`)
+  detail.push(t('upload.chunks', { done: progress.completedChunks, total: progress.totalChunks }))
   if (!merging && progress.bytesPerSecond) {
     detail.push(`${formatBytes(progress.bytesPerSecond)}/s`)
     const eta = formatDurationText(progress.etaSeconds)
-    if (eta) detail.push(`剩余约 ${eta}`)
+    if (eta) detail.push(t('upload.eta', { eta }))
   }
   uploadProgress.value = {
-    label: merging ? '分片已全部送达，正在服务端合并' : '正在安全上传',
+    label: merging ? t('upload.merging') : t('upload.sending'),
     filename: file.value?.name || uploadProgress.value.filename,
     percent: progress.percent,
     detail: detail.join(' · '),
@@ -708,7 +722,7 @@ const uploadFile = async () => {
   const target = file.value
   if (!target) return
   if (DEMO_MODE) {
-    showMsg('演示模式：已模拟完成分片上传')
+    showMsg(t('msg.demoUpload'))
     return
   }
 
@@ -719,7 +733,7 @@ const uploadFile = async () => {
   lastUploadProgress = {}
   const uploadUserId = currentUser.value?.id
   uploadProgress.value = {
-    label: hasUploadProgress(target) ? '正在核对已上传分片' : '准备分片上传',
+    label: hasUploadProgress(target) ? t('upload.checking') : t('upload.preparing'),
     filename: target.name,
     percent: 0,
     detail: `0 B / ${formatBytes(target.size)}`,
@@ -730,21 +744,21 @@ const uploadFile = async () => {
     const uploadedMedia = await uploadVideoInChunks(target, applyUploadProgress, controller.signal)
     if (currentUser.value?.id !== uploadUserId) return
     resumableFile.value = null
-    showMsg(uploadedMedia?.instant ? `${target.name} 秒传完成：服务器已有相同内容` : `${target.name} 上传完成`)
+    showMsg(uploadedMedia?.instant ? t('msg.instant', { name: target.name }) : t('msg.uploaded', { name: target.name }))
     await fetchList({ notify: true })
     openAgent(uploadedMedia)
   } catch (error) {
     if (currentUser.value?.id !== uploadUserId) return
     rememberResumableUpload(target)
     if (error?.aborted) {
-      showMsg('上传已取消，进度已保留，可点“继续上传”接着传')
+      showMsg(t('msg.uploadCancelled'))
       return
     }
     console.error(error)
     showMsg(
       resumableFile.value
-        ? `❌ 上传中断：${error.message}（进度已保留，可继续上传）`
-        : `❌ 上传失败：${error.message}`,
+        ? t('msg.uploadInterrupted', { error: error.message })
+        : t('msg.uploadFailed', { error: error.message }),
       true
     )
   } finally {
@@ -756,7 +770,7 @@ const uploadFile = async () => {
 
 const cancelUpload = () => {
   if (!uploadAbort.value) return
-  uploadProgress.value = { ...uploadProgress.value, label: '正在取消上传', warning: '' }
+  uploadProgress.value = { ...uploadProgress.value, label: t('upload.cancelling'), warning: '' }
   uploadAbort.value.abort()
 }
 
@@ -771,24 +785,24 @@ const discardResumableUpload = () => {
   forgetUploadProgress(resumableFile.value)
   resumableFile.value = null
   resumableChunks.value = { done: 0, total: 0 }
-  showMsg('已清除保留的上传进度，下次将从头开始')
+  showMsg(t('msg.progressCleared'))
 }
 
 const handleUrlUpload = async () => {
   const normalizedUrl = videoUrl.value.trim()
   if (!normalizedUrl) return
   if (uploading.value) {
-    showMsg('已有上传任务在进行，请等当前任务结束', true)
+    showMsg(t('msg.busy'), true)
     return
   }
   if (DEMO_MODE) {
     videoUrl.value = ''
-    showMsg('演示模式：已模拟完成链接解析')
+    showMsg(t('msg.demoUrl'))
     return
   }
 
   if (!currentUser.value) {
-    showMsg('⚠️ 权限受限：请先登录系统', true)
+    showMsg(t('msg.loginFirst'), true)
     openAuthModal()
     return
   }
@@ -800,21 +814,21 @@ const handleUrlUpload = async () => {
     parsedUrl = null
   }
   if (!parsedUrl || !['http:', 'https:'].includes(parsedUrl.protocol)) {
-    showMsg('⚠️ 请输入合法的 http/https 链接', true)
+    showMsg(t('msg.badUrl'), true)
     return
   }
 
   uploading.value = true
   const uploadUserId = currentUser.value?.id
   uploadProgress.value = {
-    label: '正在解析视频链接',
+    label: t('upload.url.parsing'),
     filename: parsedUrl.hostname,
     percent: null,
-    detail: '服务端正在拉取源视频，时长取决于源站速度',
+    detail: t('upload.url.fetching'),
     warning: ''
   }
   messageIsError.value = false
-  message.value = '正在解析链接并极速下载 (低码率模式)...'
+  message.value = t('upload.url.started')
 
   const formData = new FormData()
   formData.append('url', normalizedUrl)
@@ -828,7 +842,7 @@ const handleUrlUpload = async () => {
     const uploadedMedia = await res.json()
     if (currentUser.value?.id !== uploadUserId) return
 
-    showMsg('✅ 链接资源已入库')
+    showMsg(t('msg.urlImported'))
     videoUrl.value = ''
     await fetchList({ notify: true })
     openAgent(uploadedMedia)
@@ -836,8 +850,8 @@ const handleUrlUpload = async () => {
     console.error(error)
     if (currentUser.value?.id !== uploadUserId) return
     let errMsg = error.message
-    if (errMsg.includes("Unsupported URL")) errMsg = "不支持该平台链接"
-    showMsg('❌ 解析失败: ' + errMsg, true)
+    if (errMsg.includes('Unsupported URL')) errMsg = t('msg.urlUnsupported')
+    showMsg(t('msg.urlFailed', { error: errMsg }), true)
   } finally {
     uploading.value = false
   }
@@ -875,11 +889,11 @@ const fetchList = async ({ notify = false } = {}) => {
     // 带时间戳绕开浏览器缓存，避免删除/新增之后列表还是旧的。
     const res = await apiRequest(`/media/list?_t=${Date.now()}`)
     if (res.status === 401) return null
-    if (!res.ok) throw new Error('加载视频列表失败')
+    if (!res.ok) throw new Error(t('msg.listError'))
     list.value = await res.json()
   } catch (error) {
     console.error(error)
-    if (notify) showMsg('视频资料库加载失败，请稍后刷新', true)
+    if (notify) showMsg(t('msg.listFailed'), true)
     return null
   }
   return list.value
@@ -894,11 +908,9 @@ const isSupportedVideo = selectedFile => {
 const mediaStatusClass = status => ['COMPLETED', 'PROCESSING', 'FAILED'].includes(status)
   ? status.toLowerCase()
   : 'unknown'
-const mediaStatusLabel = status => ({
-  COMPLETED: '可分析',
-  PROCESSING: '处理中',
-  FAILED: '失败'
-})[status] || '等待中'
+const mediaStatusLabel = status => ['COMPLETED', 'PROCESSING', 'FAILED'].includes(status)
+  ? t(`lib.state.${status}`)
+  : t('lib.state.waiting')
 
 const {
   sidebar,
@@ -949,11 +961,11 @@ const seekVideo = seconds => {
   const player = videoPlayer.value
   if (!player) {
     if (sidebar.value.playbackError) {
-      showMsg('原视频加载失败，无法跳转，可先点“重新加载”', true)
+      showMsg(t('msg.seekFailed'), true)
     } else if (sidebar.value.playbackLoading) {
-      showMsg('原视频还在载入，稍等一下再点这个时间戳')
+      showMsg(t('msg.seekLoading'))
     } else {
-      showMsg('这个视频暂时没有可播放的原片，无法跳转', true)
+      showMsg(t('msg.seekNone'), true)
     }
     return
   }
@@ -1012,12 +1024,11 @@ const copyToClipboard = async text => {
 const copyResult = async () => {
   const content = sidebar.value.content
   if (!content) {
-    showMsg('还没有可复制的内容', true)
+    showMsg(t('msg.nothingToCopy'), true)
     return
   }
-  const label = sidebar.value.type === 'ai' ? '分析结果' : '转写全文'
-  if (await copyToClipboard(content)) showMsg(`${label}已复制`)
-  else showMsg('复制失败，请手动选中内容后复制', true)
+  if (await copyToClipboard(content)) showMsg(sidebar.value.type === 'ai' ? t('msg.copiedAnalysis') : t('msg.copiedTranscript'))
+  else showMsg(t('msg.copyFailed'), true)
 }
 
 const resultFileBaseName = () => {
@@ -1030,7 +1041,7 @@ const resultFileBaseName = () => {
 const downloadResult = () => {
   const content = sidebar.value.content
   if (!content) {
-    showMsg('还没有可导出的内容', true)
+    showMsg(t('msg.nothingToExport'), true)
     return
   }
   const isMarkdown = sidebar.value.type === 'ai'
@@ -1046,35 +1057,35 @@ const downloadResult = () => {
   document.body.removeChild(link)
   // 立刻 revoke 在部分浏览器会导致下载拿不到内容，延后一拍更稳。
   setTimeout(() => URL.revokeObjectURL(url), 0)
-  showMsg(`已导出 ${link.download}`)
+  showMsg(t('msg.exported', { file: link.download }))
 }
 
 const deleteItem = async (item) => {
   if (DEMO_MODE) {
     list.value = list.value.filter(i => i.id !== item.id)
     discardMediaWorkspace(item.id)
-    showMsg('演示任务已移除')
+    showMsg(t('msg.demoRemoved'))
     return
   }
   if (deletingId.value) return
   const runningTask = activeTaskOf(item.id)
   const warning = runningTask
-    ? '\n\n注意：该视频还有任务正在后台执行，删除后这次的结果会丢失。'
+    ? t('msg.deleteRunning')
     : ''
-  if (!confirm(`确认要永久删除 "${item.filename}" 吗？${warning}`)) return
+  if (!confirm(t('msg.deleteConfirm', { name: item.filename, warning }))) return
   deletingId.value = item.id
   try {
     const res = await apiRequest(`/media/delete?id=${item.id}`, { method: 'DELETE' })
     const text = await res.text()
     if (res.ok) {
-      showMsg(`已删除 ${item.filename}`)
+      showMsg(t('msg.deleted', { name: item.filename }))
       list.value = list.value.filter(i => i.id !== item.id)
       discardMediaWorkspace(item.id)
     } else {
       showMsg('❌ ' + text, true)
     }
   } catch (e) {
-    showMsg('❌ 删除请求失败', true)
+    showMsg(t('msg.deleteFailed'), true)
   } finally {
     deletingId.value = null
   }
@@ -1089,17 +1100,17 @@ const formatTime = (timeStr) => {
 
 const downloadAudio = async (item) => {
   if (DEMO_MODE) {
-    showMsg(`演示模式：${item.filename} 音频已准备`)
+    showMsg(t('msg.demoAudio', { name: item.filename }))
     return
   }
   let fileName = item.filename || 'audio.mp3';
   fileName = fileName.replace(/\.[^/.]+$/, "") + ".mp3";
   try {
-    showMsg('正在转码并下载...')
+    showMsg(t('msg.audioPreparing'))
     const res = await apiRequest(`/analysis/download?id=${item.id}`)
     // 失败时后端返回的是 JSON 信封，api.js 会把 message 解包给 text()，
     // 这里读出来向上抛，避免把“视频不存在 / 无权访问 / 转码失败”统一显示成同一句话。
-    if (!res.ok) throw new Error((await res.text()) || '请稍后重试')
+    if (!res.ok) throw new Error((await res.text()) || t('msg.retryLater'))
     const blob = await res.blob()
     const downloadUrl = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -1109,9 +1120,9 @@ const downloadAudio = async (item) => {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(downloadUrl)
-    showMsg('✅ 下载完成')
+    showMsg(t('msg.audioDone'))
   } catch (e) {
-    showMsg('音频下载失败：' + (e?.message || '请稍后重试'), true)
+    showMsg(t('msg.audioFailed', { error: e?.message || t('msg.retryLater') }), true)
   }
 }
 
@@ -1163,7 +1174,7 @@ const switchAuthMode = ({ keepMessage = false } = {}) => {
 }
 const handleAuth = async () => {
   if (!authForm.value.username || !authForm.value.password) {
-    authMessage.value = '请输入完整的账号和密码'
+    authMessage.value = t('msg.fillCredentials')
     authError.value = true
     return
   }
@@ -1177,13 +1188,13 @@ const handleAuth = async () => {
       body: JSON.stringify(authForm.value)
     })
     if (!res.ok) {
-      authMessage.value = (await res.text()) || `请求失败（HTTP ${res.status}）`
+      authMessage.value = (await res.text()) || t('msg.httpFailed', { status: res.status })
       authError.value = true
       return
     }
     const data = await res.json().catch(() => null)
     if (!data?.userInfo) {
-      authMessage.value = '服务端返回异常，请稍后重试'
+      authMessage.value = t('msg.badResponse')
       authError.value = true
       return
     }
@@ -1192,16 +1203,16 @@ const handleAuth = async () => {
       localStorage.setItem('user', JSON.stringify(data.userInfo))
       setAuthToken(data.token)
       closeAuthModal()
-      showMsg(`欢迎回来，${data.userInfo.nickname}`)
+      showMsg(t('msg.welcome', { name: data.userInfo.nickname }))
       fetchList({ notify: true })
     } else {
-      authMessage.value = '注册成功，账号密码已保留，直接点“立即登录”即可'
+      authMessage.value = t('msg.registered')
       authError.value = false
       setTimeout(() => switchAuthMode({ keepMessage: true }), 900)
     }
   } catch (e) {
     console.error(e)
-    authMessage.value = e?.message || '网络连接错误'
+    authMessage.value = e?.message || t('msg.network')
     authError.value = true
   } finally {
     authLoading.value = false
@@ -1230,24 +1241,24 @@ const logout = () => {
   }
   resetSessionState()
   clearAuthToken()
-  showMsg('已退出系统')
+  showMsg(t('msg.loggedOut'))
 }
 
 const handleAuthExpired = () => {
   resetSessionState()
-  showMsg('登录状态已失效，请重新登录', true)
+  showMsg(t('msg.sessionExpired'), true)
   openAuthModal()
 }
 
 const handleOnline = () => {
   isOffline.value = false
-  showMsg('网络已恢复，正在同步最新状态')
+  showMsg(t('msg.online'))
   if (currentUser.value) fetchList()
 }
 
 const handleOffline = () => {
   isOffline.value = true
-  showMsg('网络已断开：上传会自动重试，后台任务会在恢复后继续', true)
+  showMsg(t('msg.offline'), true)
 }
 
 // 上传中误关标签页会白丢已传分片，这里让浏览器先问一句。
@@ -1387,6 +1398,10 @@ code { font-family: var(--font-latin); background: var(--birch); padding: 1px 6p
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lichen); }
 .status-pill.is-active .status-dot { background: var(--fjord); animation: breathe 1.6s ease-in-out infinite; }
 
+.lang-switch { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--wool); border-radius: 999px; }
+.lang-switch button { padding: 3px 9px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; color: var(--stone); transition: background 0.2s, color 0.2s; }
+.lang-switch button:hover { color: var(--granite); }
+.lang-switch button.active { background: var(--granite); color: var(--paper); }
 .auth-btn {
   padding: 8px 16px; border-radius: var(--radius-control); background: var(--granite); color: var(--paper);
   font-size: 0.88rem; font-weight: 500; transition: background 0.2s;
