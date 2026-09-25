@@ -268,7 +268,7 @@ type AuthRequest struct {
 type AuthConfig struct {
 	InviteOnly bool       `json:"inviteOnly"`
 	Demo       *DemoLogin `json:"demo"`
-	DailyLimit float64    `json:"dailyLimit"`
+	Limited    bool       `json:"limited"` // the demo account has a daily AI allowance
 }
 
 type DemoLogin struct {

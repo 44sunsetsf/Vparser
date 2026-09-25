@@ -9,7 +9,6 @@ package billing
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strconv"
 	"time"
@@ -83,8 +82,7 @@ func (l *Ledger) Check(ctx context.Context, uid int64) error {
 		return nil
 	}
 	if spent >= l.Limit {
-		return common.Business(common.CodeQuotaExhausted,
-			fmt.Sprintf("今日 AI 额度（¥%.2f）已用完，明天再来，或联系作者获取内测账号", l.Limit))
+		return common.Business(common.CodeQuotaExhausted, "这个账号今天的 AI 额度已用完，明天再来，或联系作者获取内测账号")
 	}
 	return nil
 }

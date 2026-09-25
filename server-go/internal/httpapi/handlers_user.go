@@ -54,7 +54,7 @@ func authResult(c *gin.Context, resp model.AuthResponse) {
 
 // authConfig is public: the login form uses it to show the invite notice and the demo account.
 func (a *API) authConfig(c *gin.Context) {
-	cfg := model.AuthConfig{InviteOnly: a.Auth.InviteCode != "", DailyLimit: a.DemoDailyLimit}
+	cfg := model.AuthConfig{InviteOnly: a.Auth.InviteCode != "", Limited: a.DemoDailyLimit > 0}
 	if a.DemoUsername != "" {
 		cfg.Demo = &model.DemoLogin{Username: a.DemoUsername, Password: a.DemoPassword}
 	}

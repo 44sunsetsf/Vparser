@@ -448,7 +448,7 @@
               <p class="beta-title">{{ t('auth.beta.title') }}</p>
               <p v-if="authConfig.demo" class="beta-demo">
                 {{ t('auth.beta.demo') }} <code>{{ authConfig.demo.username }}</code> / <code>{{ authConfig.demo.password }}</code>
-                <span v-if="authConfig.dailyLimit"> · {{ t('auth.beta.limit', { limit: authConfig.dailyLimit }) }}</span>
+                <span v-if="authConfig.limited"> · {{ t('auth.beta.limit') }}</span>
                 <button type="button" class="toggle-link" @click="fillDemo">{{ t('auth.beta.fill') }}</button>
               </p>
               <p v-if="authConfig.inviteOnly" class="beta-invite">{{ t('auth.beta.invite') }}</p>
@@ -546,7 +546,7 @@ const authLoading = ref(false)
 const authMessage = ref('')
 const authError = ref(false)
 const authForm = ref({ username: '', password: '', nickname: '', inviteCode: '' })
-const authConfig = ref({ inviteOnly: false, demo: null, dailyLimit: 0 })
+const authConfig = ref({ inviteOnly: false, demo: null, limited: false })
 const loadAuthConfig = async () => {
   try {
     const res = await apiRequest('/user/auth-config')
