@@ -1311,15 +1311,18 @@ watch(() => sidebar.value.visible, async visible => {
 })
 
 // 长任务给一个时间锚点，用户才不会怀疑是不是卡死了。
-watch(() => sidebar.value.loading, loading => {
+// 从任务第一次提交时算起：关掉面板、重新打开或刷新页面，计时都接着走，不会从零开始。
+watch(() => [sidebar.value.loading, sidebar.value.startedAt], ([loading, taskStartedAt]) => {
   clearInterval(elapsedTimer)
   elapsedTimer = null
-  elapsedSeconds.value = 0
-  if (!loading) return
-  const startedAt = Date.now()
-  elapsedTimer = setInterval(() => {
-    elapsedSeconds.value = Math.floor((Date.now() - startedAt) / 1000)
-  }, 1000)
+  if (!loading) {
+    elapsedSeconds.value = 0
+    return
+  }
+  const startedAt = taskStartedAt || Date.now()
+  const tick = () => { elapsedSeconds.value = Math.max(0, Math.floor((Date.now() - startedAt) / 1000)) }
+  tick()
+  elapsedTimer = setInterval(tick, 1000)
 })
 
 onMounted(() => {

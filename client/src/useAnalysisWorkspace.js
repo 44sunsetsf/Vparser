@@ -3,6 +3,7 @@ import { apiRequest } from './api'
 import { DEMO_EVALUATION, DEMO_ITEM, DEMO_PLAN, DEMO_RESULT, DEMO_TRACE } from './demoData'
 import { renderMarkdown } from './markdown'
 import { serverText, t } from './i18n'
+import { forgetTaskStart, rememberTaskStart, taskStartKey } from './taskStart.js'
 
 // 分析模式选项。GENERAL/LEARNING/REVIEW/CREATION 与后端 AnalysisMode 枚举一一对应,value 直接作为 mode 参数;
 // AUTO 是纯前端选项:提交前先调 /analysis/route 让 AI 判定出具体模式,再据此发起分析——
@@ -47,7 +48,9 @@ function createSidebarState() {
     feedbackLoading: false,
     editingPlan: false,
     planDraft: [],
-    rerunLoading: false
+    rerunLoading: false,
+    // when the running task was first submitted, so the wait timer survives closing the panel or reloading
+    startedAt: null
   }
 }
 
@@ -162,6 +165,7 @@ export function useAnalysisWorkspace({
           : t('ws.taskDone', { task: taskLabel, suffix }),
         failed
       )
+      forgetTaskStart(taskStartKey(id, type, scope))
       taskStreams.stop(id, type, scope)
     }
 
@@ -222,6 +226,7 @@ export function useAnalysisWorkspace({
     if (taskStreams.has(id, 'text')) {
       openSidebar('text', panelTitle)
       sidebar.value.mediaId = id
+      sidebar.value.startedAt = rememberTaskStart(taskStartKey(id, 'text', ''))
       sidebar.value.statusMessage = t('ws.asrContinuing')
       return
     }
@@ -245,11 +250,13 @@ export function useAnalysisWorkspace({
         if (isCurrentWorkspace(id, 'text') && currentStatus.message) {
           sidebar.value.statusMessage = currentStatus.message
         }
+        if (isCurrentWorkspace(id, 'text')) sidebar.value.startedAt = rememberTaskStart(taskStartKey(id, 'text', ''))
         startTaskStream(id, 'text')
         return
       }
       const response = await apiRequest(`/analysis/transcribe?id=${id}`, { method: 'POST' })
       if (!response.ok) throw new Error(await response.text())
+      if (isCurrentWorkspace(id, 'text')) sidebar.value.startedAt = rememberTaskStart(taskStartKey(id, 'text', ''), Date.now(), true)
       startTaskStream(id, 'text')
     } catch (error) {
       if (isCurrentWorkspace(id, 'text')) {
@@ -268,6 +275,7 @@ export function useAnalysisWorkspace({
       sidebar.value.mode = 'result'
       sidebar.value.loading = true
       sidebar.value.statusMessage = t('ws.takeover')
+      sidebar.value.startedAt = rememberTaskStart(taskStartKey(id, 'ai', scope))
       return
     }
 
@@ -281,6 +289,10 @@ export function useAnalysisWorkspace({
       const params = new URLSearchParams({ id: String(id), goal, mode: resolvedMode })
       const response = await apiRequest(`/analysis/ai?${params}`, { method: 'POST' })
       const message = await response.text()
+      // a new task starts its clock now; 409 means the same task is already running, so keep its original start
+      if (response.ok || response.status === 409) {
+        sidebar.value.startedAt = rememberTaskStart(taskStartKey(id, 'ai', scope), Date.now(), response.status !== 409)
+      }
       if (response.status === 409) {
         startTaskStream(id, 'ai', goal, resolvedMode)
         refreshAgentMeta(id, goal, false, resolvedMode)
@@ -345,6 +357,7 @@ export function useAnalysisWorkspace({
         sidebar.value.mode = 'result'
         sidebar.value.loading = true
         sidebar.value.statusMessage = serverText(status.message, { fallback: 'ws.restoring' })
+        sidebar.value.startedAt = rememberTaskStart(taskStartKey(item.id, 'ai', analysisScope(goal, analysisMode)))
         startTaskStream(item.id, 'ai', goal, analysisMode)
         await refreshAgentMeta(item.id, goal, false, analysisMode)
       } else if (status.state === 'FAILED') {
