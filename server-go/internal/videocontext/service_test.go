@@ -131,3 +131,18 @@ func TestPermanentFailureSurvivesWrapping(t *testing.T) {
 	_ = fakeASR{}
 	_ = workerpool.ErrRejected
 }
+
+func TestOCRKeepsTesseractLogsOutOfTheText(t *testing.T) {
+	dir := t.TempDir()
+	fake := filepath.Join(dir, "tesseract")
+	script := "#!/bin/sh\necho 'Estimating resolution as 132' >&2\necho '二叉树 Binary Tree'\n"
+	if err := os.WriteFile(fake, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	img := filepath.Join(dir, "f.jpg")
+	_ = os.WriteFile(img, []byte("jpg"), 0o644)
+	got, err := NewOCR(fake).Recognize(context.Background(), img)
+	if err != nil || got != "二叉树 Binary Tree" {
+		t.Fatalf("got %q, %v", got, err)
+	}
+}

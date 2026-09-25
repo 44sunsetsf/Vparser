@@ -152,6 +152,25 @@
             {{ message }}
           </div>
         </transition>
+
+        <details class="limits">
+          <summary><span class="kicker">{{ t('limits.kicker') }}</span>{{ t('limits.title') }}<span class="limits-hint">{{ t('limits.hint') }}</span></summary>
+          <div class="limits-body">
+            <div class="limits-cols">
+              <section v-for="col in ['good', 'slow', 'no']" :key="col" :class="['limits-col', col]">
+                <h3>{{ t('limits.' + col) }}</h3>
+                <ul><li v-for="i in 3" :key="i">{{ t('limits.' + col + '.' + i) }}</li></ul>
+              </section>
+            </div>
+            <table class="limits-table">
+              <caption>{{ t('limits.measured') }}</caption>
+              <thead><tr><th>{{ t('limits.col.video') }}</th><th>{{ t('limits.col.time') }}</th><th>{{ t('limits.col.cost') }}</th><th>{{ t('limits.col.note') }}</th></tr></thead>
+              <tbody><tr v-for="i in 5" :key="i"><td>{{ t('limits.row' + i + '.v') }}</td><td class="num">{{ t('limits.row' + i + '.t') }}</td><td class="num">{{ t('limits.row' + i + '.c') }}</td><td>{{ t('limits.row' + i + '.n') }}</td></tr></tbody>
+            </table>
+            <p class="limits-sub">{{ t('limits.todo') }}</p>
+            <ol class="limits-todo"><li v-for="i in 5" :key="i">{{ t('limits.todo.' + i) }}</li></ol>
+          </div>
+        </details>
       </section>
 
       <section v-if="list.length > 0" class="workspace-section">
@@ -1390,6 +1409,7 @@ onUnmounted(() => {
   --shadow-lift: 0 1px 0 rgba(31, 42, 48, 0.05), 0 24px 60px -28px rgba(31, 42, 48, 0.38);
   --font-latin: 'Jost', 'Noto Sans SC', system-ui, sans-serif;
   --font-body: 'Noto Sans SC', 'Jost', system-ui, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1728,4 +1748,40 @@ body.overlay-open { overflow: hidden; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes breathe { 50% { opacity: 0.35; } }
 @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+
+/* ---------- Engineering touches (kept quiet: the tool comes first) ---------- */
+.status-pill .status-dot + span:lang(en), .lang-switch, .hero-steps li::before, .kicker { font-family: var(--mono); letter-spacing: 0; }
+.hero-section { background-image: radial-gradient(rgba(31, 42, 48, 0.07) 1px, transparent 1.2px); background-size: 22px 22px; background-position: -11px -11px; }
+.hero-copy::before { content: "// video → notes · ASR + OCR + agent"; display: block; margin-bottom: 14px; font: 500 12px/1 var(--mono); color: var(--mist); letter-spacing: .02em; }
+
+/* ---------- Limits panel ---------- */
+.limits { grid-column: 1 / -1; margin-top: 18px; border: 1px solid var(--wool); border-radius: var(--radius-sheet); background: var(--paper); box-shadow: var(--shadow-wool); }
+.limits summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 16px 22px; font-weight: 600; color: var(--granite); }
+.limits summary::-webkit-details-marker { display: none; }
+.limits summary::after { content: "+"; margin-left: auto; font: 400 18px/1 var(--mono); color: var(--mist); transition: transform .2s; }
+.limits[open] summary::after { transform: rotate(45deg); }
+.limits .kicker { font-size: 12px; font-weight: 500; color: var(--fjord); }
+.limits-hint { font-size: 12px; font-weight: 400; color: var(--mist); }
+.limits-body { padding: 4px 22px 22px; border-top: 1px dashed var(--wool); }
+.limits-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.limits-col h3 { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 8px; }
+.limits-col h3::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--lichen); }
+.limits-col.slow h3::before { background: var(--amber); }
+.limits-col.no h3::before { background: var(--falu); }
+.limits-col ul { list-style: none; display: grid; gap: 8px; }
+.limits-col li { font-size: 13px; line-height: 1.6; color: var(--stone); padding-left: 12px; border-left: 1px solid var(--wool); }
+.limits-table { width: 100%; margin-top: 22px; border-collapse: collapse; font-size: 13px; }
+.limits-table caption { text-align: left; font-weight: 600; font-size: 13px; margin-bottom: 8px; color: var(--granite); }
+.limits-table th { text-align: left; font: 500 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--mist); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--wool); }
+.limits-table td { padding: 8px 10px 8px 0; border-bottom: 1px dashed var(--wool); color: var(--stone); vertical-align: top; }
+.limits-table td:first-child { color: var(--granite); }
+.limits-table .num { white-space: nowrap; }
+.limits-sub { margin-top: 20px; font-weight: 600; font-size: 13px; }
+.limits-todo { margin-top: 6px; padding-left: 0; list-style: none; counter-reset: todo; display: grid; gap: 4px; }
+.limits-todo li { counter-increment: todo; font-size: 13px; color: var(--stone); }
+.limits-todo li::before { content: "[ ] "; font-family: var(--mono); color: var(--mist); }
+@media (max-width: 760px) {
+  .limits-cols { grid-template-columns: 1fr; }
+  .limits-table th:nth-child(4), .limits-table td:nth-child(4) { display: none; }
+}
 </style>

@@ -211,7 +211,9 @@ func (d *Downloader) fetchFile(ctx context.Context, src string, size int64) (str
 	fail := func(e error) (string, error) { f.Close(); _ = os.Remove(out); return "", e }
 
 	var n int64
+	stalls := 0 // reconnects in a row that brought no new bytes; long videos need many reconnects that do
 	for attempt := 0; ; attempt++ {
+		before := n
 		req, _ := http.NewRequestWithContext(cctx, http.MethodGet, src, nil)
 		req.Header.Set("User-Agent", biliBrowser)
 		req.Header.Set("Referer", "https://www.bilibili.com/")
@@ -250,14 +252,19 @@ func (d *Downloader) fetchFile(ctx context.Context, src string, size int64) (str
 		if cctx.Err() != nil {
 			return fail(common.Internal("视频链接下载超时", err))
 		}
-		if attempt >= 8 {
+		if n > before {
+			stalls = 0
+		} else {
+			stalls++
+		}
+		if stalls >= 5 {
 			return fail(common.Business(common.CodeSourceTimeout, "从 B 站下载视频时连接反复中断，请稍后重试或改为上传文件"))
 		}
 		slog.Info("bilibili_download_resume", "bytes", n, "attempt", attempt+1, "err", err.Error())
 		select {
 		case <-cctx.Done():
 			return fail(common.Internal("视频链接下载超时", cctx.Err()))
-		case <-time.After(time.Duration(attempt+1) * time.Second):
+		case <-time.After(time.Duration(stalls+1) * time.Second):
 		}
 	}
 	if err := f.Close(); err != nil {

@@ -31,9 +31,10 @@ func (o *OCR) Recognize(ctx context.Context, image string) (string, error) {
 	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(cctx, o.Command, OCRArgs(abs)...)
-	// stderr is merged into the captured text so warnings stay next to the output they concern
-	var out bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &out
+	// only stdout is the recognised text; tesseract logs to stderr ("Estimating resolution as 132", "Detected 4
+	// diacritics"), which used to end up in the evidence and confuse the agent. stderr is kept for failures only.
+	var out, logs bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &logs
 	err = cmd.Run()
 	name := filepath.Base(image)
 	if errors.Is(cctx.Err(), context.DeadlineExceeded) {
@@ -43,7 +44,8 @@ func (o *OCR) Recognize(ctx context.Context, image string) (string, error) {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
 			return "", common.Internal("OCR failed for "+name,
-				common.Internal(fmt.Sprintf("OCR process failed with exit code %d", ee.ExitCode()), nil))
+				common.Internal(fmt.Sprintf("OCR process failed with exit code %d: %s", ee.ExitCode(),
+					strings.TrimSpace(logs.String())), nil))
 		}
 		return "", common.Internal("OCR failed for "+name, err)
 	}
