@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +19,9 @@ import (
 )
 
 const segmentMs = 60_000
+
+// asrParallel is how many audio segments are transcribed at once.
+const asrParallel = 10
 
 // AudioToText is the ASR dependency of the transcriber.
 type AudioToText interface {
@@ -29,7 +33,8 @@ type Transcriber struct{ ASR AudioToText }
 
 // FFmpegSegmentArgs is the audio segmentation command line.
 func FFmpegSegmentArgs(video, outputPattern string) []string {
-	return []string{"-y", "-i", video, "-vn", "-acodec", "libmp3lame",
+	// mono 16 kHz is all speech recognition needs, and a third of the upload of the default stereo 44.1 kHz
+	return []string{"-y", "-i", video, "-vn", "-ac", "1", "-ar", "16000", "-acodec", "libmp3lame", "-b:a", "48k",
 		"-f", "segment", "-segment_time", "60", "-reset_timestamps", "1", outputPattern}
 }
 
@@ -61,24 +66,47 @@ func (t *Transcriber) Transcribe(ctx context.Context, videoPath, audioDir string
 	if err != nil {
 		return nil, err
 	}
+	// every segment is an independent API call (about 5 s per minute of audio), so they run side by side;
+	// asrParallel keeps the burst polite towards the provider's rate limit
+	type outcome struct {
+		text string
+		err  error
+	}
+	outs := make([]outcome, len(files))
+	sem := make(chan struct{}, asrParallel)
+	var wg sync.WaitGroup
+	for i, f := range files {
+		wg.Add(1)
+		go func(i int, f string) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				outs[i].err = ctx.Err()
+				return
+			}
+			defer func() { <-sem }()
+			inc(counters, "asrCalls")
+			outs[i].text, outs[i].err = t.ASR.AudioToText(ctx, f)
+		}(i, f)
+	}
+	wg.Wait()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	result := []model.TranscriptSegment{}
 	failed := 0
 	var lastErr error
-	for i, f := range files {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		inc(counters, "asrCalls")
-		text, err := t.ASR.AudioToText(ctx, f)
-		if err != nil {
+	for i, o := range outs {
+		if o.err != nil {
 			failed++
-			lastErr = err
+			lastErr = o.err
 			inc(counters, "asrSegmentFailures")
-			slog.Warn("asr_segment_failed", "segment", i, "file", filepath.Base(f), "err", err)
+			slog.Warn("asr_segment_failed", "segment", i, "file", filepath.Base(files[i]), "err", o.err)
 			continue
 		}
-		if strings.TrimSpace(text) != "" {
-			seg, err := model.NewTranscriptSegment(int64(i)*segmentMs, int64(i+1)*segmentMs, text)
+		if strings.TrimSpace(o.text) != "" {
+			seg, err := model.NewTranscriptSegment(int64(i)*segmentMs, int64(i+1)*segmentMs, o.text)
 			if err != nil {
 				return nil, err
 			}

@@ -7,6 +7,7 @@ import (
 	"image/jpeg"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"dovideo/server/internal/common"
@@ -57,13 +58,16 @@ func TestParseShowinfoLine(t *testing.T) {
 }
 
 func TestCommandLines(t *testing.T) {
-	a := FFmpegFrameArgs("in.mp4", "/tmp/f")
-	if a[3] != "-vf" || a[4] != `select=eq(n\,0)+gt(scene\,0.35)+gte(t-prev_selected_t\,30),showinfo` ||
-		a[5] != "-vsync" || a[6] != "vfr" || a[7] != "/tmp/f/frame_%06d.jpg" {
+	a := FFmpegFrameArgs("in.mp4", "/tmp/f", 20)
+	if FrameGapSeconds(600) != 20 || FrameGapSeconds(3600) != 91 || FrameGapSeconds(0) != 20 {
+		t.Fatal("frame gap: 20 s for short videos, longer so that a long video keeps at most 40 frames")
+	}
+	if a[1] != "-skip_frame" || a[2] != "nokey" || a[5] != "-vf" || !strings.HasPrefix(a[6], "select=eq(n\\,0)") ||
+		a[7] != "-vsync" || a[8] != "vfr" || a[9] != "/tmp/f/frame_%06d.jpg" {
 		t.Fatalf("%q", a)
 	}
 	s := FFmpegSegmentArgs("in.mp4", "/tmp/a/audio_%03d.mp3")
-	want := []string{"-y", "-i", "in.mp4", "-vn", "-acodec", "libmp3lame", "-f", "segment", "-segment_time", "60", "-reset_timestamps", "1", "/tmp/a/audio_%03d.mp3"}
+	want := []string{"-y", "-i", "in.mp4", "-vn", "-ac", "1", "-ar", "16000", "-acodec", "libmp3lame", "-b:a", "48k", "-f", "segment", "-segment_time", "60", "-reset_timestamps", "1", "/tmp/a/audio_%03d.mp3"}
 	for i := range want {
 		if s[i] != want[i] {
 			t.Fatalf("%q", s)

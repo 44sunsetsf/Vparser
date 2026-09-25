@@ -19,6 +19,11 @@
             <span class="status-text">{{ systemStatusText }}</span>
           </div>
 
+          <button type="button" class="theme-btn" :aria-label="t('nav.theme')" :title="t('nav.theme')" @click="toggleTheme">
+            <svg v-if="dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          </button>
+
           <div class="lang-switch" role="group" :aria-label="t('nav.language')">
             <button
                 v-for="option in LOCALES"
@@ -45,6 +50,14 @@
 
     <main class="main-container">
       <section class="hero-section">
+        <!-- 首屏背景：特罗姆瑟的峡湾（深色为极光），叠加用真实高程数据实时渲染的山脉点云（terrain.js） -->
+        <div class="hero-scene" aria-hidden="true">
+          <img class="scene-photo scene-fjord" src="/img/fjord-1000.jpg" srcset="/img/fjord-1000.jpg 1000w, /img/fjord-2000.jpg 2000w" sizes="100vw" alt="" />
+          <img class="scene-photo scene-aurora" src="/img/aurora-1800.jpg" alt="" loading="lazy" />
+          <canvas class="terrain"></canvas>
+          <div class="scene-fade"></div>
+        </div>
+        <span class="hud" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
         <div class="hero-copy">
           <h1 class="slogan-main" v-html="t('hero.title')"></h1>
           <p class="slogan-sub">{{ t('hero.sub') }}</p>
@@ -80,6 +93,7 @@
           >
             <div class="split-container" v-if="!uploading">
               <label for="file-input" class="pane pane-local">
+                <span class="pane-index" aria-hidden="true">01 / LOCAL</span>
                 <span class="pane-icon" aria-hidden="true">
                   <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 </span>
@@ -88,6 +102,7 @@
               </label>
 
               <div class="pane pane-url">
+                <span class="pane-index" aria-hidden="true">02 / LINK</span>
                 <span class="pane-icon" aria-hidden="true">
                   <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
                 </span>
@@ -168,7 +183,7 @@
               <tbody><tr v-for="i in 5" :key="i"><td>{{ t('limits.row' + i + '.v') }}</td><td class="num">{{ t('limits.row' + i + '.t') }}</td><td class="num">{{ t('limits.row' + i + '.c') }}</td><td>{{ t('limits.row' + i + '.n') }}</td></tr></tbody>
             </table>
             <p class="limits-sub">{{ t('limits.todo') }}</p>
-            <ol class="limits-todo"><li v-for="i in 5" :key="i">{{ t('limits.todo.' + i) }}</li></ol>
+            <ol class="limits-todo"><li v-for="i in 5" :key="i" :class="{ done: i <= 2 }">{{ t('limits.todo.' + i) }}</li></ol>
           </div>
         </details>
       </section>
@@ -508,6 +523,12 @@
           </form>
         </div>
       </div>
+      <p class="site-credit">
+        <a href="https://commons.wikimedia.org/wiki/File:Store_Bl%C3%A5mann_southeast_face_over_Kaldfjorden,_2012_March.jpg" target="_blank" rel="noopener">Kaldfjorden</a>,
+        <a href="https://commons.wikimedia.org/wiki/File:Aurora_borealis_above_Storfjorden_and_the_Lyngen_Alps_in_moonlight,_2012_March.jpg" target="_blank" rel="noopener">Lyngen</a>
+        © Simo Räsänen, <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a> ·
+        Terrain: <a href="https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM" target="_blank" rel="noopener">Copernicus DEM GLO-30</a> © DLR e.V., © Airbus DS, provided under COPERNICUS by the EU and ESA
+      </p>
     </main>
   </div>
 </template>
@@ -528,6 +549,15 @@ import { LOCALES, locale, localeTag, setLocale, t } from './i18n'
 
 import { createTaskStreams } from './taskEvents'
 import { useAnalysisWorkspace } from './useAnalysisWorkspace'
+
+// dark / light: follows the system until the visitor picks one (index.html sets the class before first paint)
+const dark = ref(document.documentElement.classList.contains('dark'))
+function toggleTheme() {
+  dark.value = !dark.value
+  document.documentElement.classList.toggle('dark', dark.value)
+  try { localStorage.setItem('vp-theme', dark.value ? 'dark' : 'light') } catch { /* private mode */ }
+  window.dispatchEvent(new Event('themechange')) // the point cloud repaints in the new colours
+}
 
 // --- 变量定义 ---
 const DEMO_MODE = new URLSearchParams(window.location.search).has('demo')
@@ -1345,6 +1375,7 @@ watch(() => [sidebar.value.loading, sidebar.value.startedAt], ([loading, taskSta
 })
 
 onMounted(() => {
+  import('./terrain.js') // draws into the hero's canvas; loaded after mount so the canvas exists
   window.addEventListener('auth-expired', handleAuthExpired)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('online', handleOnline)
@@ -1780,8 +1811,94 @@ body.overlay-open { overflow: hidden; }
 .limits-todo { margin-top: 6px; padding-left: 0; list-style: none; counter-reset: todo; display: grid; gap: 4px; }
 .limits-todo li { counter-increment: todo; font-size: 13px; color: var(--stone); }
 .limits-todo li::before { content: "[ ] "; font-family: var(--mono); color: var(--mist); }
+.limits-todo li.done { color: var(--granite); }
+.limits-todo li.done::before { content: "[x] "; color: var(--lichen); }
 @media (max-width: 760px) {
   .limits-cols { grid-template-columns: 1fr; }
   .limits-table th:nth-child(4), .limits-table td:nth-child(4) { display: none; }
 }
+
+/* ---------- Dark theme: the same tokens, night values (aurora accent, as on yunfanteo.world) ---------- */
+html.dark {
+  --snow: #07090c; --paper: #0c1116; --birch: #121922; --wool: #1f2832;
+  --granite: #e6edf3; --stone: #9aa6b2; --mist: #66727e;
+  --fjord: #5eead4; --fjord-deep: #2dd4bf; --fjord-tint: rgba(94, 234, 212, 0.09);
+  --lichen: #6ee7b7; --lichen-tint: rgba(110, 231, 183, 0.1);
+  --falu: #f87171; --falu-tint: rgba(248, 113, 113, 0.12);
+  --amber: #fbbf24; --amber-tint: rgba(251, 191, 36, 0.12);
+  --shadow-wool: 0 0 0 1px rgba(94, 234, 212, 0.04), 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+  --shadow-lift: 0 0 0 1px rgba(94, 234, 212, 0.08), 0 30px 70px -30px rgba(0, 0, 0, 0.9);
+  color-scheme: dark;
+}
+html.dark .paper-grain { display: none; }
+html.dark .navbar { background: rgba(7, 9, 12, 0.78); }
+html.dark .auth-btn, html.dark .url-go-btn, html.dark .lang-switch button.active { color: #04110f; }
+html.dark .horizon .ridge.far, html.dark .horizon .ridge.near { fill: none; stroke: var(--fjord); stroke-width: 1; stroke-dasharray: 1.5 5; vector-effect: non-scaling-stroke; }
+html.dark .horizon .ridge.far { opacity: 0.45; }
+html.dark .hero-section { background-image: radial-gradient(rgba(154, 166, 178, 0.13) 1px, transparent 1.2px); }
+html.dark .upload-magnet { background: linear-gradient(180deg, rgba(94, 234, 212, 0.035), transparent 40%), var(--paper); border-color: var(--wool); }
+html.dark .slogan-main em { background: linear-gradient(90deg, #5eead4, #7dd3fc 70%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.dark .limits { border-color: var(--wool); }
+html.dark .status-indicator.completed, html.dark .quality-row span, html.dark .auth-msg { color: var(--lichen); }
+html.dark .markdown-content blockquote { color: var(--amber); }
+
+/* ---------- Hero instrument details ---------- */
+.slogan-main em { font-style: normal; }
+.theme-btn { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--wool); border-radius: 999px; color: var(--stone); transition: color .2s, border-color .2s; }
+.theme-btn:hover { color: var(--granite); border-color: var(--stone); }
+.hud { position: absolute; inset: -18px -22px auto; height: 300px; pointer-events: none; }
+.hud i { position: absolute; width: 14px; height: 14px; border: 0 solid var(--mist); opacity: .7; }
+.hud i:nth-child(1) { left: 0; top: 0; border-width: 1px 0 0 1px; }
+.hud i:nth-child(2) { right: 0; top: 0; border-width: 1px 1px 0 0; }
+.hud i:nth-child(3) { left: 0; bottom: 0; border-width: 0 0 1px 1px; }
+.hud i:nth-child(4) { right: 0; bottom: 0; border-width: 0 1px 1px 0; }
+html.dark .hud i { border-color: var(--fjord); opacity: .55; }
+.horizon { overflow: visible; }
+.horizon .waterline { stroke-dasharray: 0; }
+html.dark .upload-wrapper::before { content: ""; position: absolute; left: 0; right: 0; top: -97px; height: 96px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--fjord-tint) 48%, rgba(94, 234, 212, 0.18) 50%, var(--fjord-tint) 52%, transparent);
+  background-size: 30% 100%; background-repeat: no-repeat; animation: scan 9s linear infinite; opacity: .8; mix-blend-mode: normal; }
+@keyframes scan { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+.pane-index { display: block; margin-bottom: 14px; font: 500 11px/1 var(--mono); letter-spacing: .08em; color: var(--mist); }
+.pane-local:hover .pane-index, .pane-url:focus-within .pane-index { color: var(--fjord); }
+.upload-magnet { transition: border-color .25s, box-shadow .25s; }
+.upload-magnet:hover { border-color: color-mix(in srgb, var(--fjord) 40%, var(--wool)); }
+html.dark .upload-magnet:hover { box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.25), 0 0 40px -12px rgba(94, 234, 212, 0.35), var(--shadow-lift); }
+@media (prefers-reduced-motion: reduce) { .upload-wrapper::before { animation: none; display: none; } }
+@media (max-width: 760px) { .hud { display: none; } }
+@media (max-width: 520px) {
+  .nav-content { padding-left: 16px; padding-right: 16px; }
+  .nav-controls { gap: 6px; }
+  .auth-btn { white-space: nowrap; padding: 7px 12px; font-size: 0.8rem; }
+  .lang-switch button { padding: 3px 7px; }
+}
+
+/* ---------- Hero scene: fjord photo (aurora at night) + live point cloud of the real terrain ---------- */
+:root { --pc-hi: 255, 255, 255; --pc-lo: 220, 232, 242; --pc-alpha: .55; --scene-h: 600px; }
+html.dark { --pc-hi: 94, 234, 212; --pc-lo: 125, 211, 252; --pc-alpha: .9; }
+.hero-section { z-index: 0; background-image: none !important; }
+.hero-scene { position: absolute; z-index: -1; top: -64px; left: calc(50% - 50vw); width: 100vw; height: var(--scene-h); overflow: hidden; background: #56626e; }
+.scene-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; }
+.scene-fjord { filter: saturate(.75) brightness(.8); }
+.scene-aurora { display: none; }
+html.dark .hero-scene { background: #07090c; }
+html.dark .scene-fjord { display: none; }
+html.dark .scene-aurora { display: block; opacity: .3; filter: saturate(.6); }
+.hero-scene .terrain { position: absolute; top: 0; left: 22%; width: 78%; height: 100%; opacity: 0; transition: opacity 1.6s ease; } /* peak between the headline and the steps */
+.hero-scene .terrain.ready { opacity: 1; }
+.scene-fade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(18, 24, 30, .35), rgba(18, 24, 30, 0) 34%, rgba(18, 24, 30, 0) 62%, var(--snow) 100%); }
+html.dark .scene-fade { background: linear-gradient(to bottom, rgba(7, 9, 12, .6), rgba(7, 9, 12, 0) 35%, rgba(7, 9, 12, .2) 65%, var(--snow) 100%); }
+.hero-section .slogan-main { color: #fff; text-shadow: 0 1px 24px rgba(0, 0, 0, .18); }
+.hero-section .slogan-sub, .hero-steps li span { color: rgba(255, 255, 255, .82); }
+.hero-steps li strong { color: #fff; }
+.hero-steps li::before { color: #fff !important; border-color: rgba(255, 255, 255, .55) !important; }
+.hero-copy::before { color: rgba(255, 255, 255, .7); }
+.hud i { border-color: rgba(255, 255, 255, .7); }
+html:not(.dark) .slogan-main em { color: #fff; }
+.horizon { visibility: hidden; }
+html.dark .upload-wrapper::before { display: none; }
+.site-credit { max-width: 1180px; margin: 56px auto 28px; padding: 0 32px; font-size: 11px; line-height: 1.6; color: var(--mist); }
+.site-credit a { color: inherit; text-decoration: underline; text-decoration-color: var(--wool); }
+@media (max-width: 760px) { :root { --scene-h: 820px; } .hero-scene .terrain { left: 0; width: 100%; top: 52%; height: 48%; } }
+@media (prefers-reduced-motion: reduce) { .hero-scene .terrain { transition: none; } }
 </style>

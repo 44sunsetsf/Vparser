@@ -249,6 +249,9 @@ func (d *Downloader) fetchFile(ctx context.Context, src string, size int64) (str
 		if err == nil {
 			break
 		}
+		if ctx.Err() != nil {
+			return fail(ctx.Err()) // the caller went away (closed the page): not a timeout
+		}
 		if cctx.Err() != nil {
 			return fail(common.Internal("视频链接下载超时", err))
 		}

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -22,12 +23,37 @@ import (
 
 var ptsTime = regexp.MustCompile(`pts_time:([0-9.]+)`)
 
-// FFmpegFrameArgs is the scene-change key frame command line.
-func FFmpegFrameArgs(video, frameDir string) []string {
-	return []string{"-y", "-i", video,
-		"-vf", `select=eq(n\,0)+gt(scene\,0.35)+gte(t-prev_selected_t\,30),showinfo`,
+// maxKeyFrames caps how many frames get OCR, whatever the video length: OCR is the slowest step on a small
+// server (about 4 s a frame), so a 1-hour lecture must not turn into 170 slide changes.
+const maxKeyFrames = 40
+
+// FrameGapSeconds is the minimum distance between two kept frames: 20 s, or longer for long videos so that at most
+// maxKeyFrames are kept.
+func FrameGapSeconds(durationSec float64) int {
+	return max(20, int(durationSec/maxKeyFrames)+1)
+}
+
+// FFmpegFrameArgs is the key frame command line. Only the codec's own key frames are decoded (-skip_frame nokey):
+// decoding every frame for scene detection used to take most of the preprocessing time on a small server. A frame
+// is kept on a scene change (a new slide) at most once per gap seconds, and at least once per max(60, gap) seconds;
+// frames are scaled to at most 1280 px wide, which is plenty for OCR and much faster.
+func FFmpegFrameArgs(video, frameDir string, gap int) []string {
+	return []string{"-y", "-skip_frame", "nokey", "-i", video,
+		"-vf", fmt.Sprintf(`select=eq(n\,0)+gte(t-prev_selected_t\,%d)+gt(scene\,0.3)*gte(t-prev_selected_t\,%d),scale='min(1280\,iw)':-2,showinfo`, max(60, gap), gap),
 		"-vsync", "vfr",
 		filepath.Join(frameDir, "frame_%06d.jpg")}
+}
+
+// probeDuration returns the video length in seconds (0 if ffprobe cannot tell).
+func probeDuration(ctx context.Context, video string) float64 {
+	cctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	out, err := exec.CommandContext(cctx, "ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", video).Output()
+	if err != nil {
+		return 0
+	}
+	d, _ := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+	return d
 }
 
 // runFrameCommand runs ffmpeg with merged stdout/stderr in a log file and returns pts_time of

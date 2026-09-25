@@ -195,7 +195,7 @@ func (s *Service) extractKeyFrames(ctx context.Context, videoPath, frameDir stri
 	if err := os.MkdirAll(frameDir, 0o755); err != nil {
 		return nil, err
 	}
-	timestamps, err := runFrameCommand(ctx, FFmpegFrameArgs(videoPath, frameDir))
+	timestamps, err := runFrameCommand(ctx, FFmpegFrameArgs(videoPath, frameDir, FrameGapSeconds(probeDuration(ctx, videoPath))))
 	if err != nil {
 		return nil, err
 	}
