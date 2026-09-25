@@ -246,7 +246,8 @@ class DeepSeekClient:
                     self._telemetry.model_call(stage, P.SYSTEM_POLICY + "\n" + prompt, response,
                                                self._in_price, self._out_price, started)
                     if self._ledger is not None:
-                        self._ledger.add((input_tokens * self._in_price + output_tokens * self._out_price) / 1_000_000)
+                        self._ledger.add((input_tokens * self._in_price + output_tokens * self._out_price) / 1_000_000,
+                                         input_tokens, output_tokens)
                     return response
                 except DeadlineExceededError:
                     # Out of budget: no retry, and not a model fault — let the caller classify it.

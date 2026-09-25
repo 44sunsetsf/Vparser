@@ -15,8 +15,10 @@ def test_key_follows_beijing_day():
 def test_ledger_adds_only_for_a_known_user():
     r = fakeredis.FakeRedis(decode_responses=True)
     ledger = SpendLedger(r)
-    ledger.add(0.5)                              # no user: not recorded
-    assert r.keys("billing:*") == []
+    ledger.add(0.5, 100, 10)                     # no user: no spend counter, but usage is still recorded as "-"
+    assert r.keys("billing:spend:*") == []
+    [u] = r.keys("billing:usage:*")
+    assert r.hget(u, "calls:-") == "1" and r.hget(u, "in:-") == "100"
     token = CURRENT_USER.set(2)
     try:
         ledger.add(0.25)
@@ -26,6 +28,9 @@ def test_ledger_adds_only_for_a_known_user():
         CURRENT_USER.reset(token)
     [k] = r.keys("billing:spend:2:*")
     assert float(r.get(k)) == 0.75
+    [u] = r.keys("billing:usage:*")
+    assert r.hget(u, "calls") == "4" and r.hget(u, "calls:2") == "3"
+    assert abs(float(r.hget(u, "cost:2")) - 0.75) < 1e-9
     assert 0 < r.ttl(k) <= 3 * 86400
 
 
