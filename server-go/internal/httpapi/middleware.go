@@ -36,6 +36,7 @@ func fail(c *gin.Context, err error) {
 	if status == http.StatusInternalServerError {
 		slog.Error("unhandled_request_error", "path", c.Request.URL.Path, "err", err)
 	}
+	c.Header(CodeHeader, strconv.Itoa(res.Code)) // why it failed, for the owner's analytics (the code, never details)
 	writeJSON(c, status, res)
 	c.Abort()
 }
@@ -144,6 +145,9 @@ func userID(c *gin.Context) int64 { return c.GetInt64(userIDKey) }
 
 // UserHeader carries the signed-in account id on responses (no credentials, just the id).
 const UserHeader = "X-Vparser-User"
+
+// CodeHeader carries the business error code of a failed request (e.g. 42202: the video site refused the download).
+const CodeHeader = "X-Vparser-Code"
 
 // httpMetrics records http_request_duration_seconds labelled by the matched route template
 // (/analysis/agent-plan, /admin/failed-analysis/:id/replay), never the raw path, so ids and query

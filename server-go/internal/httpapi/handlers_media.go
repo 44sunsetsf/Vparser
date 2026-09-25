@@ -5,8 +5,10 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -117,12 +119,13 @@ func (a *API) uploadFile(c *gin.Context) {
 }
 
 func (a *API) uploadURL(c *gin.Context) {
-	url, err := requiredString(c, "url")
+	raw, err := requiredString(c, "url")
 	if err != nil {
 		fail(c, err)
 		return
 	}
-	mf, err := a.Media.IngestURL(c.Request.Context(), url, userID(c))
+	sourceHeader(c, raw)
+	mf, err := a.Media.IngestURL(c.Request.Context(), raw, userID(c))
 	if err != nil {
 		fail(c, err)
 		return
@@ -317,4 +320,14 @@ func (a *API) instantUpload(c *gin.Context) {
 		return
 	}
 	ok(c, model.SummaryOf(mf))
+}
+
+// sourceHeader echoes the link a visitor asked to import (URL-escaped, at most 300 bytes), so the owner's analytics
+// can show what was tried, including imports that failed. It is the visitor's own input; nothing else is revealed.
+func sourceHeader(c *gin.Context, raw string) {
+	raw = strings.TrimSpace(raw)
+	if len(raw) > 300 {
+		raw = raw[:300]
+	}
+	c.Header("X-Vparser-Source", url.QueryEscape(raw))
 }

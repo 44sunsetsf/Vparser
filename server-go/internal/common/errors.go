@@ -23,7 +23,11 @@ var (
 	CodeConflict           = ErrorCode{40900, http.StatusConflict}
 	CodeUnprocessable      = ErrorCode{42200, http.StatusUnprocessableEntity}
 	CodeRateLimited        = ErrorCode{42900, http.StatusTooManyRequests}
-	CodeQuotaExhausted     = ErrorCode{42901, http.StatusTooManyRequests} // daily AI spend used up (see billing)
+	CodeQuotaExhausted     = ErrorCode{42901, http.StatusTooManyRequests}     // daily AI spend used up (see billing)
+	CodeSourceBlocked      = ErrorCode{42202, http.StatusUnprocessableEntity} // the video site refused the server (login, bot check, region)
+	CodeSourceUnsupported  = ErrorCode{42203, http.StatusUnprocessableEntity} // no downloadable video at the link
+	CodeSourceTooLarge     = ErrorCode{42204, http.StatusUnprocessableEntity} // over the 2 GB download limit
+	CodeSourceTimeout      = ErrorCode{42205, http.StatusUnprocessableEntity} // the site did not answer in time
 	CodeInternalError      = ErrorCode{50000, http.StatusInternalServerError}
 	CodeServiceUnavailable = ErrorCode{50300, http.StatusServiceUnavailable}
 )

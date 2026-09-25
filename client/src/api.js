@@ -47,7 +47,10 @@ function dataAsText(data) {
 }
 
 // Business codes whose Chinese server message has a translation here.
-const LOCALIZED_CODES = { 42901: 'quota.exhausted', 40301: 'auth.inviteRequired' }
+const LOCALIZED_CODES = {
+  42901: 'quota.exhausted', 40301: 'auth.inviteRequired',
+  42202: 'url.blocked', 42203: 'url.unsupported', 42204: 'url.tooLarge', 42205: 'url.timeout',
+}
 
 function localizedMessage(envelope) {
   const key = LOCALIZED_CODES[envelope.code]

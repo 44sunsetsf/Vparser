@@ -340,7 +340,7 @@ func (s *Service) IngestURL(ctx context.Context, url string, userID int64) (*mod
 	if strings.TrimSpace(url) == "" {
 		return nil, common.InvalidArgument("视频链接不能为空")
 	}
-	tmp, err := s.ytdlp.Download(ctx, url)
+	tmp, title, err := s.ytdlp.Download(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +362,31 @@ func (s *Service) IngestURL(ctx context.Context, url string, userID int64) (*mod
 	if err != nil {
 		return nil, err
 	}
-	return s.SaveUploadedMedia(ctx, "WEB_"+filepath.Base(tmp), fileURL, userID, md5sum)
+	name := "WEB_" + filepath.Base(tmp)
+	if t := linkTitle(title); t != "" {
+		name = t + ".mp4"
+	}
+	return s.SaveUploadedMedia(ctx, name, fileURL, userID, md5sum)
+}
+
+// linkTitle makes a site's video title usable as a file name: no path separators or control characters, at most
+// 80 characters.
+func linkTitle(title string) string {
+	var b strings.Builder
+	n := 0
+	for _, r := range strings.TrimSpace(title) {
+		if n >= 80 {
+			break
+		}
+		switch {
+		case r == '/' || r == '\\' || r < 0x20 || r == 0x7f:
+			b.WriteRune(' ')
+		default:
+			b.WriteRune(r)
+		}
+		n++
+	}
+	return strings.TrimSpace(b.String())
 }
 
 // ExportMP3 extracts the audio track to a temporary MP3 file and returns its path.

@@ -3,7 +3,10 @@ package ytdlp
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
+
+	"dovideo/server/internal/common"
 )
 
 func TestIsDisallowedAddress(t *testing.T) {
@@ -52,5 +55,40 @@ func TestBuildArgs(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("ffmpeg-location missing")
+	}
+}
+
+func TestBuildArgsFallsBackToAnyFormat(t *testing.T) {
+	a := New("yt-dlp", "").BuildArgs("/tmp/o.mp4", "https://x/y.mp4")
+	for i, s := range a {
+		if s == "-f" && strings.HasSuffix(a[i+1], "/b[ext=mp4]/bv*+ba/b") {
+			return
+		}
+	}
+	t.Fatalf("format selector has no fallback: %v", a)
+}
+
+func TestClassify(t *testing.T) {
+	cases := []struct {
+		log  string
+		code common.ErrorCode
+	}{
+		{"ERROR: [youtube] x: Sign in to confirm you’re not a bot. Use --cookies-from-browser", common.CodeSourceBlocked},
+		{"ERROR: [BiliBili] 1GJ411x7h7: Unable to download webpage: HTTP Error 412: Precondition Failed", common.CodeSourceBlocked},
+		{"ERROR: [Douyin] 73: Fresh cookies (not necessarily logged in) are needed", common.CodeSourceBlocked},
+		{"ERROR: [vimeo] 7: The web client only works when logged-in.", common.CodeSourceBlocked},
+		{"ERROR: Unsupported URL: https://example.com/page", common.CodeSourceUnsupported},
+		{"ERROR: [generic] y: Requested format is not available", common.CodeSourceUnsupported},
+		{"ERROR: File is larger than max-filesize (3000000000 bytes > 2147483648 bytes). Aborting.", common.CodeSourceTooLarge},
+		{"ERROR: [archive.org] x: Connection to archive.org timed out. (connect timeout=20.0)", common.CodeSourceTimeout},
+	}
+	for _, c := range cases {
+		e := Classify(c.log)
+		if e == nil || e.Code != c.code {
+			t.Errorf("%q → %+v, want code %d", c.log, e, c.code.Code)
+		}
+	}
+	if Classify("ERROR: something nobody has seen before") != nil {
+		t.Error("unknown failures should stay internal")
 	}
 }
