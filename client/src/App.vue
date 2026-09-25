@@ -50,9 +50,9 @@
 
     <main class="main-container">
       <section class="hero-section">
-        <!-- 首屏背景：特罗姆瑟的峡湾（深色为极光），叠加用真实高程数据实时渲染的山脉点云（terrain.js） -->
+        <!-- 首屏背景：特罗姆瑟城区与特罗姆瑟大桥（深色为极光），叠加用真实高程数据实时渲染的山脉点云（terrain.js） -->
         <div class="hero-scene" aria-hidden="true">
-          <img class="scene-photo scene-fjord" src="/img/fjord-1000.jpg" srcset="/img/fjord-1000.jpg 1000w, /img/fjord-2000.jpg 2000w" sizes="100vw" alt="" />
+          <img class="scene-photo scene-fjord" src="/img/tromso-1000.jpg" srcset="/img/tromso-1000.jpg 1000w, /img/tromso-2000.jpg 2000w" sizes="100vw" alt="" />
           <img class="scene-photo scene-aurora" src="/img/aurora-1800.jpg" alt="" loading="lazy" />
           <canvas class="terrain"></canvas>
           <div class="scene-fade"></div>
@@ -524,7 +524,8 @@
         </div>
       </div>
       <p class="site-credit">
-        <a href="https://commons.wikimedia.org/wiki/File:Store_Bl%C3%A5mann_southeast_face_over_Kaldfjorden,_2012_March.jpg" target="_blank" rel="noopener">Kaldfjorden</a>,
+        <a href="https://commons.wikimedia.org/wiki/File:Puente_de_Troms%C3%B8,_Troms%C3%B8,_Noruega,_2019-09-04,_DD_47.jpg" target="_blank" rel="noopener">Tromsø</a>
+        © Diego Delso, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> ·
         <a href="https://commons.wikimedia.org/wiki/File:Aurora_borealis_above_Storfjorden_and_the_Lyngen_Alps_in_moonlight,_2012_March.jpg" target="_blank" rel="noopener">Lyngen</a>
         © Simo Räsänen, <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a> ·
         Terrain: <a href="https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM" target="_blank" rel="noopener">Copernicus DEM GLO-30</a> © DLR e.V., © Airbus DS, provided under COPERNICUS by the EU and ESA
@@ -1874,19 +1875,22 @@ html.dark .upload-magnet:hover { box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.25),
 }
 
 /* ---------- Hero scene: fjord photo (aurora at night) + live point cloud of the real terrain ---------- */
-:root { --pc-hi: 255, 255, 255; --pc-lo: 220, 232, 242; --pc-alpha: .55; --scene-h: 600px; }
+:root { --pc-hi: 255, 255, 255; --pc-lo: 220, 232, 242; --pc-alpha: .32; --scene-h: 600px; }
 html.dark { --pc-hi: 94, 234, 212; --pc-lo: 125, 211, 252; --pc-alpha: .9; }
 .hero-section { z-index: 0; background-image: none !important; }
 .hero-scene { position: absolute; z-index: -1; top: -64px; left: calc(50% - 50vw); width: 100vw; height: var(--scene-h); overflow: hidden; background: #56626e; }
 .scene-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; }
-.scene-fjord { filter: saturate(.75) brightness(.8); }
+.scene-fjord { filter: saturate(.9) brightness(.82); object-position: 50% 60%; }
 .scene-aurora { display: none; }
 html.dark .hero-scene { background: #07090c; }
 html.dark .scene-fjord { display: none; }
 html.dark .scene-aurora { display: block; opacity: .3; filter: saturate(.6); }
 .hero-scene .terrain { position: absolute; top: 0; left: 22%; width: 78%; height: 100%; opacity: 0; transition: opacity 1.6s ease; } /* peak between the headline and the steps */
 .hero-scene .terrain.ready { opacity: 1; }
-.scene-fade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(18, 24, 30, .35), rgba(18, 24, 30, 0) 34%, rgba(18, 24, 30, 0) 62%, var(--snow) 100%); }
+.scene-fade { position: absolute; inset: 0; background:
+  linear-gradient(to bottom, rgba(242, 243, 239, 0) 72%, var(--snow) 100%),
+  linear-gradient(90deg, rgba(12, 18, 24, .62) 0%, rgba(12, 18, 24, .38) 42%, rgba(12, 18, 24, .18) 68%, rgba(12, 18, 24, .42) 100%),
+  linear-gradient(to bottom, rgba(12, 18, 24, .25), rgba(12, 18, 24, 0) 40%); }
 html.dark .scene-fade { background: linear-gradient(to bottom, rgba(7, 9, 12, .6), rgba(7, 9, 12, 0) 35%, rgba(7, 9, 12, .2) 65%, var(--snow) 100%); }
 .hero-section .slogan-main { color: #fff; text-shadow: 0 1px 24px rgba(0, 0, 0, .18); }
 .hero-section .slogan-sub, .hero-steps li span { color: rgba(255, 255, 255, .82); }
@@ -1899,6 +1903,6 @@ html:not(.dark) .slogan-main em { color: #fff; }
 html.dark .upload-wrapper::before { display: none; }
 .site-credit { max-width: 1180px; margin: 56px auto 28px; padding: 0 32px; font-size: 11px; line-height: 1.6; color: var(--mist); }
 .site-credit a { color: inherit; text-decoration: underline; text-decoration-color: var(--wool); }
-@media (max-width: 760px) { :root { --scene-h: 820px; } .hero-scene .terrain { left: 0; width: 100%; top: 52%; height: 48%; } }
+@media (max-width: 760px) { html:not(.dark) .scene-fade { background: linear-gradient(to bottom, rgba(242, 243, 239, 0) 75%, var(--snow) 100%), linear-gradient(to bottom, rgba(12, 18, 24, .55), rgba(12, 18, 24, .45)); } :root { --scene-h: 820px; } .hero-scene .terrain { left: 0; width: 100%; top: 52%; height: 48%; } }
 @media (prefers-reduced-motion: reduce) { .hero-scene .terrain { transition: none; } }
 </style>
