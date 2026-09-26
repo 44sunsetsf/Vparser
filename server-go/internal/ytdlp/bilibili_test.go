@@ -1,12 +1,15 @@
 package ytdlp
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"sync"
 	"testing"
 
 	"dovideo/server/internal/common"
@@ -126,5 +129,54 @@ func TestDownloadBilibiliRejectsForeignCDN(t *testing.T) {
 	u, _ := url.Parse("https://www.bilibili.com/video/BV1J6eQ6iEyN?p=2")
 	if _, _, err := d.downloadBilibili(context.Background(), u); err == nil {
 		t.Fatal("a download URL outside Bilibili's CDN must be refused")
+	}
+}
+
+func TestBilibiliMirrorsPreferOverseasCOS(t *testing.T) {
+	src := "https://upos-hz-mirrorakam.akamaized.net/upgcxcode/53/17/1/1-1-192.mp4?e=x&deadline=1"
+	got := BilibiliMirrors(src)
+	if len(got) != 4 || got[0] != "https://upos-sz-mirrorcosov.bilivideo.com/upgcxcode/53/17/1/1-1-192.mp4?e=x&deadline=1" || got[1] != src {
+		t.Fatalf("mirrors %q", got)
+	}
+	if m := BilibiliMirrors("https://example.com/a.mp4"); len(m) != 1 {
+		t.Fatalf("non-Bilibili URLs are used as they are: %q", m)
+	}
+}
+
+func TestFetchChunksAssemblesRangesAcrossMirrors(t *testing.T) {
+	data := make([]byte, 3*chunkSize+123)
+	for i := range data {
+		data[i] = byte(i * 7)
+	}
+	fails := map[string]int{} // the first try of every range fails, like a flaky CDN edge
+	var mu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var a, b int64
+		if _, err := fmt.Sscanf(r.Header.Get("Range"), "bytes=%d-%d", &a, &b); err != nil {
+			t.Errorf("range %q", r.Header.Get("Range"))
+			return
+		}
+		mu.Lock()
+		fails[r.Header.Get("Range")]++
+		first := fails[r.Header.Get("Range")] == 1
+		mu.Unlock()
+		if first {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = w.Write(data[a : b+1])
+	}))
+	defer srv.Close()
+	d := New("yt-dlp", "")
+	d.HTTP = srv.Client()
+	path, err := d.fetchChunks(context.Background(), srv.URL+"/v.mp4", int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(path)
+	got, _ := os.ReadFile(path)
+	if !bytes.Equal(got, data) {
+		t.Fatalf("assembled file differs (%d bytes vs %d)", len(got), len(data))
 	}
 }

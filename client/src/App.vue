@@ -912,7 +912,7 @@ const handleUrlUpload = async () => {
       method: 'POST',
       body: formData
     })
-    if (!res.ok) throw new Error(await res.text())
+    if (!res.ok) throw Object.assign(new Error(await res.text()), { fromServer: true })
     const uploadedMedia = await res.json()
     if (currentUser.value?.id !== uploadUserId) return
 
@@ -923,6 +923,13 @@ const handleUrlUpload = async () => {
   } catch (error) {
     console.error(error)
     if (currentUser.value?.id !== uploadUserId) return
+    if (!error.fromServer && error.name !== 'AbortError') {
+      // the connection dropped (phone locked, network switch): the server keeps importing, so look again shortly
+      showMsg(t('msg.urlBackground'))
+      videoUrl.value = ''
+      setTimeout(() => { if (currentUser.value?.id === uploadUserId) fetchList({ notify: true }) }, 20000)
+      return
+    }
     let errMsg = error.message
     if (errMsg.includes('Unsupported URL')) errMsg = t('msg.urlUnsupported')
     showMsg(t('msg.urlFailed', { error: errMsg }), true)

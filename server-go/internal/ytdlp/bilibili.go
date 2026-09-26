@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -189,7 +190,12 @@ func (d *Downloader) downloadBilibili(ctx context.Context, u *url.URL) (string, 
 		return "", "", common.Business(common.CodeSourceUnsupported, "B 站返回的下载地址不在其视频 CDN 上，已拒绝")
 	}
 
-	path, err := d.fetchFile(ctx, media.String(), play.DURL[0].Size)
+	var path string
+	if size := play.DURL[0].Size; size > chunkSize {
+		path, err = d.fetchChunks(ctx, media.String(), size)
+	} else {
+		path, err = d.fetchFile(ctx, media.String(), size)
+	}
 	if err != nil {
 		return "", "", err
 	}
@@ -211,10 +217,19 @@ func (d *Downloader) fetchFile(ctx context.Context, src string, size int64) (str
 	fail := func(e error) (string, error) { f.Close(); _ = os.Remove(out); return "", e }
 
 	var n int64
-	stalls := 0 // reconnects in a row that brought no new bytes; long videos need many reconnects that do
+	mirrors, mirror := BilibiliMirrors(src), 0
+	stalls := 0           // reconnects in a row that brought no new bytes; long videos need many reconnects that do
+	next := func() bool { // move on to the next mirror, keeping the bytes already written
+		if mirror+1 >= len(mirrors) {
+			return false
+		}
+		mirror, stalls = mirror+1, 0
+		slog.Info("bilibili_download_mirror", "host", hostOf(mirrors[mirror]), "bytes", n)
+		return true
+	}
 	for attempt := 0; ; attempt++ {
 		before := n
-		req, _ := http.NewRequestWithContext(cctx, http.MethodGet, src, nil)
+		req, _ := http.NewRequestWithContext(cctx, http.MethodGet, mirrors[mirror], nil)
 		req.Header.Set("User-Agent", biliBrowser)
 		req.Header.Set("Referer", "https://www.bilibili.com/")
 		if n > 0 {
@@ -228,10 +243,16 @@ func (d *Downloader) fetchFile(ctx context.Context, src string, size int64) (str
 		}
 		if err == nil && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 			resp.Body.Close()
+			if next() {
+				continue
+			}
 			return fail(common.Business(common.CodeSourceBlocked, fmt.Sprintf("B 站视频服务器拒绝了下载（HTTP %d），请先把视频保存到本地再上传", resp.StatusCode)))
 		}
 		if err == nil && n > 0 && resp.StatusCode != http.StatusPartialContent {
 			resp.Body.Close() // the server ignored Range: continuing would corrupt the file
+			if next() {
+				continue
+			}
 			return fail(common.Business(common.CodeSourceTimeout, "从 B 站下载视频时连接中断，请稍后重试"))
 		}
 		if err == nil {
@@ -260,6 +281,9 @@ func (d *Downloader) fetchFile(ctx context.Context, src string, size int64) (str
 		} else {
 			stalls++
 		}
+		if stalls >= 4 && next() {
+			continue
+		}
 		if stalls >= 5 {
 			return fail(common.Business(common.CodeSourceTimeout, "从 B 站下载视频时连接反复中断，请稍后重试或改为上传文件"))
 		}
@@ -279,4 +303,162 @@ func (d *Downloader) fetchFile(ctx context.Context, src string, size int64) (str
 		return "", common.Business(common.CodeSourceUnsupported, "B 站返回了空文件，请先保存到本地再上传")
 	}
 	return out, nil
+}
+
+// Bilibili serves the same object under the same path and signed query from several CDNs. The html5 playurl hands
+// out an Akamai mirror, which from Singapore truncates some ranges and answers 503 for others; Bilibili's overseas
+// COS mirror delivered a 26 MB file in 0.3 s in the same test. So downloads go to that mirror first and fall back to
+// the original host and two domestic mirrors.
+var biliMirrorHosts = []string{"upos-sz-mirrorcosov.bilivideo.com", "", "upos-sz-mirrorcos.bilivideo.com", "upos-sz-mirrorali.bilivideo.com"}
+
+// BilibiliMirrors lists the URLs to try for a Bilibili media URL, best first ("" stands for the original host).
+func BilibiliMirrors(src string) []string {
+	u, err := url.Parse(src)
+	if err != nil || !strings.HasPrefix(u.Path, "/upgcxcode/") || !bilibiliCDN(u.Hostname()) {
+		return []string{src}
+	}
+	out, seen := []string{}, map[string]bool{}
+	for _, h := range biliMirrorHosts {
+		v := *u
+		if h != "" {
+			v.Host = h
+		}
+		if s := v.String(); !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func hostOf(raw string) string {
+	if u, err := url.Parse(raw); err == nil {
+		return u.Hostname()
+	}
+	return ""
+}
+
+// A single connection to Bilibili's CDN runs at 0.2–1 MB/s from Singapore for videos that are not cached at the
+// edge, so a 1-hour lecture took over half an hour. Large files are therefore fetched as 4 MB ranges, eight at a
+// time, each range retried on its own and moved to the next mirror when one keeps failing.
+const (
+	chunkSize    = 4 << 20
+	chunkWorkers = 8
+)
+
+func (d *Downloader) fetchChunks(ctx context.Context, src string, size int64) (string, error) {
+	if size > maxDownload {
+		return "", common.Business(common.CodeSourceTooLarge, "视频超过 2 GB，无法通过链接导入")
+	}
+	cctx, cancel := context.WithTimeout(ctx, downloadTimeout)
+	defer cancel()
+	out := filepath.Join(os.TempDir(), uuid.NewString()+".mp4")
+	f, err := os.Create(out)
+	if err != nil {
+		return "", err
+	}
+	fail := func(e error) (string, error) { f.Close(); _ = os.Remove(out); return "", e }
+	if err := f.Truncate(size); err != nil {
+		return fail(err)
+	}
+	mirrors := BilibiliMirrors(src)
+	jobs := make(chan int64)
+	errs := make(chan error, chunkWorkers)
+	var wg sync.WaitGroup
+	for w := 0; w < chunkWorkers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for start := range jobs {
+				end := min(start+chunkSize, size) - 1
+				if err := d.fetchRange(cctx, mirrors, f, start, end); err != nil {
+					errs <- err
+					cancel() // one range gave up everywhere: stop the others
+					return
+				}
+			}
+		}()
+	}
+feed:
+	for start := int64(0); start < size; start += chunkSize {
+		select {
+		case jobs <- start:
+		case <-cctx.Done():
+			break feed
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	close(errs)
+	if err := <-errs; err != nil {
+		return fail(err)
+	}
+	if ctx.Err() != nil {
+		return fail(ctx.Err())
+	}
+	if cctx.Err() != nil {
+		return fail(common.Internal("视频链接下载超时", cctx.Err()))
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(out)
+		return "", err
+	}
+	return out, nil
+}
+
+// fetchRange writes bytes [start, end] of the file at their offset, resuming inside the range after a drop and
+// moving through the mirrors when one makes no progress several times in a row.
+func (d *Downloader) fetchRange(ctx context.Context, mirrors []string, f *os.File, start, end int64) error {
+	pos, mirror, stalls := start, 0, 0
+	for pos <= end {
+		before := pos
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, mirrors[mirror], nil)
+		req.Header.Set("User-Agent", biliBrowser)
+		req.Header.Set("Referer", "https://www.bilibili.com/")
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", pos, end))
+		resp, err := d.biliClient().Do(req)
+		if err == nil {
+			if resp.StatusCode == http.StatusPartialContent {
+				buf := make([]byte, 64<<10)
+				for pos <= end {
+					k, rerr := resp.Body.Read(buf[:min(int64(len(buf)), end-pos+1)])
+					if k > 0 {
+						if _, werr := f.WriteAt(buf[:k], pos); werr != nil {
+							resp.Body.Close()
+							return werr
+						}
+						pos += int64(k)
+					}
+					if rerr != nil {
+						break
+					}
+				}
+			}
+			resp.Body.Close()
+		}
+		if pos > end {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if pos > before {
+			stalls = 0
+			continue
+		}
+		stalls++
+		if stalls >= 3 {
+			if mirror+1 >= len(mirrors) {
+				return common.Business(common.CodeSourceTimeout, "从 B 站下载视频时连接反复中断，请稍后重试或改为上传文件")
+			}
+			mirror, stalls = mirror+1, 0
+			slog.Info("bilibili_range_mirror", "host", hostOf(mirrors[mirror]), "offset", pos)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Duration(stalls) * time.Second):
+		}
+	}
+	return nil
 }

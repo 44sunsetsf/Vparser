@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -125,7 +126,9 @@ func (a *API) uploadURL(c *gin.Context) {
 		return
 	}
 	sourceHeader(c, raw)
-	mf, err := a.Media.IngestURL(c.Request.Context(), raw, userID(c))
+	// a phone that locks its screen or switches apps drops the request; the import still finishes, and the video
+	// shows up in the list on the next refresh (IngestURL has its own 30-minute download limit)
+	mf, err := a.Media.IngestURL(context.WithoutCancel(c.Request.Context()), raw, userID(c))
 	if err != nil {
 		fail(c, err)
 		return
