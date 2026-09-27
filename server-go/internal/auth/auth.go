@@ -28,7 +28,7 @@ import (
 
 const (
 	passwordPrefix     = "pbkdf2"
-	passwordIterations = 210_000
+	passwordIterations = 600_000 // OWASP's current figure for PBKDF2-HMAC-SHA256
 	passwordKeyBytes   = 32
 	saltBytes          = 16
 	tokenBytes         = 32
@@ -154,9 +154,10 @@ func (s *Service) Login(ctx context.Context, req model.AuthRequest) (model.AuthR
 		}
 		return response(401, "账号或密码错误", nil, ""), nil
 	}
-	if !IsHashed(user.Password) {
-		// accounts seeded directly in SQL (e.g. a bootstrap admin) carry a plaintext password; it is
-		// rehashed on the first successful login
+	if NeedsRehash(user.Password) {
+		// accounts seeded directly in SQL (e.g. a bootstrap admin) carry a plaintext password, and
+		// hashes made with fewer iterations predate the current setting; both are rehashed on the
+		// first successful login
 		hashed, err := HashPassword(*req.Password)
 		if err != nil {
 			return model.AuthResponse{}, err
@@ -208,6 +209,20 @@ func derive(password string, salt []byte, iterations int) []byte {
 
 // IsHashed reports whether the stored value uses the pbkdf2 format.
 func IsHashed(stored string) bool { return strings.HasPrefix(stored, passwordPrefix+"$") }
+
+// NeedsRehash reports whether a stored password is plaintext or hashed with fewer iterations than
+// the current setting.
+func NeedsRehash(stored string) bool {
+	if !IsHashed(stored) {
+		return true
+	}
+	parts := strings.Split(stored, "$")
+	if len(parts) < 4 {
+		return true
+	}
+	iterations, err := strconv.Atoi(parts[1])
+	return err != nil || iterations < passwordIterations
+}
 
 // PasswordMatches verifies a password against a stored hash (or a SQL-seeded plaintext value).
 func PasswordMatches(raw, stored string) bool {

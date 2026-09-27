@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"dovideo/server/internal/model"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestHashPasswordFormatRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	parts := strings.Split(h, "$")
-	if len(parts) != 4 || parts[0] != "pbkdf2" || parts[1] != "210000" || strings.Contains(h, "=") {
+	if len(parts) != 4 || parts[0] != "pbkdf2" || parts[1] != strconv.Itoa(passwordIterations) || strings.Contains(h, "=") {
 		t.Fatalf("format: %s", h)
 	}
 	if !IsHashed(h) || !PasswordMatches("Passw0rd-中文!", h) || PasswordMatches("nope", h) {
@@ -129,3 +130,23 @@ func TestRegisterNeedsInviteCodeWhenConfigured(t *testing.T) {
 }
 
 func ptr(s string) *string { return &s }
+
+func TestNeedsRehash(t *testing.T) {
+	current, err := HashPassword("Passw0rd-中文!")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name, stored string
+		want         bool
+	}{
+		{"current", current, false},
+		{"old 210k", refHash210k, true},
+		{"plaintext", "admin123", true},
+		{"malformed", "pbkdf2$x$y", true},
+	} {
+		if got := NeedsRehash(tt.stored); got != tt.want {
+			t.Errorf("%s: NeedsRehash = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
