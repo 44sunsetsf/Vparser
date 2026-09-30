@@ -23,6 +23,20 @@ docker buildx build --platform linux/amd64 -t vparser-web:latest --load ./client
 docker save vparser-server-go vparser-agent-py vparser-web | gzip | ssh <服务器> 'gunzip | docker load'
 ```
 
+## 日常更新
+
+在自己电脑的仓库根目录运行（先提交并推送）：
+
+```bash
+deploy/deploy.sh                     # 上次部署之后改了哪个服务就部署哪个
+deploy/deploy.sh server-go web       # 指定服务
+deploy/deploy.sh rollback            # 换回上一次部署前的镜像
+```
+
+脚本在本机交叉编译 server-go、构建前端，在服务器上给基础镜像（`:base`）叠一层，只重建改动的容器，
+等健康检查通过并从公网访问一次；不通过就自动回滚。依赖或 Dockerfile 变了时脚本会停下来，
+这时按上面「镜像」一节完整构建并传上去，再执行 `docker tag vparser-<服务>:latest vparser-<服务>:base`。
+
 ## 配置与启动（服务器上）
 
 ```bash

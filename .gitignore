@@ -15,3 +15,4 @@ redis/data/
 qdrant/data/
 minio/data/
 docker-compose.override.yml
+.deployed
