@@ -9,6 +9,7 @@
     <img src="https://img.shields.io/badge/Kafka-KRaft-231F20?style=flat-square" alt="Kafka">
     <img src="https://img.shields.io/badge/OpenTelemetry-Jaeger-5E6AD2?style=flat-square" alt="OpenTelemetry">
     <img src="https://img.shields.io/badge/Vue-3-42B883?style=flat-square" alt="Vue 3">
+    <a href="https://github.com/44sunsetsf/Vparser/actions/workflows/ci.yml"><img src="https://github.com/44sunsetsf/Vparser/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="MIT License"></a>
   </p>
   <p>A <strong>video agent</strong> for long-form content: it turns hours of lectures and talks into structured notes you can search, trace back and keep asking questions about.</p>
